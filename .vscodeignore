@@ -1,0 +1,15 @@
+**
+!package.json
+!package.nls.json
+!package.nls.zh-cn.json
+!README.md
+!README.en.md
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!dist/v2-extension.cjs
+!dist/v2-supervisor.cjs
+!dist/v2-bridge.js
+!dist/v2-adapter.js
+!dist/*.LEGAL.txt
+!webview/v2.css
+!media/**

@@ -1,0 +1,54 @@
+/* Layout belongs to the VS Code pane; all conversation and control styling stays official. */
+/* The extension bar is one reserved band: everything the official UI anchors to
+   the Webview's top edge starts below it. */
+body[data-dsh-vscode] { --vscode-dsh-header-height: 42px; margin: 0; padding: 0; overflow: hidden; display: flow-root; }
+html:has(body[data-dsh-vscode]), body[data-dsh-vscode] { background: var(--dsw-alias-bg-base, var(--vscode-editor-background, #181818)); }
+body[data-dsh-vscode] [data-conversation-scroll] { scrollbar-gutter: stable both-edges; margin-inline: 2px; }
+body[data-dsh-vscode] [data-conversation-scroll]:has([data-conversation-composer-overlay]) > [data-composer-seat] { inset-inline: var(--dsh-scrollbar-width); }
+body[data-dsh-vscode='chat'] #root { height: calc(100dvh - var(--vscode-dsh-header-height)); margin-top: var(--vscode-dsh-header-height); }
+body[data-dsh-vscode='chat']:not([data-vscode-ready]) #root { visibility: hidden; }
+#vscode-header { position: fixed; inset: 0 0 auto; height: var(--vscode-dsh-header-height); display: flex; align-items: center; gap: 8px; padding: 0 12px; z-index: 100; background: var(--vscode-editor-background, #fff); color: var(--vscode-foreground, #222); font-size: 13px; }
+#vscode-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#vscode-actions { display: flex; flex: 0 0 auto; gap: 4px; }
+#vscode-header { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100vw; }
+#vscode-history-context { position: fixed; z-index: 110; padding: 6px; border: 1px solid var(--vscode-widget-border, #ddd); border-radius: 6px; background: var(--vscode-editor-background, #fff); }
+#vscode-history-context button { padding: 8px 12px; border: 0; color: var(--vscode-foreground, #222); background: transparent; cursor: pointer; }
+#vscode-actions button { display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: inherit; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
+#vscode-actions button:hover { background: var(--vscode-toolbar-hoverBackground, #eee); }
+#vscode-history { position: absolute; right: 12px; top: 40px; width: min(360px, calc(100vw - 24px)); max-height: 65vh; overflow: auto; padding: 6px; border: 1px solid var(--vscode-widget-border, #ddd); border-radius: 10px; background: var(--vscode-editor-background, #fff); box-shadow: 0 6px 24px #0002; }
+#vscode-history button { width: 100%; display: block; padding: 9px; background: transparent; border: 0; border-radius: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; cursor: pointer; }
+#vscode-history button:hover, #vscode-history button[aria-current=true] { background: var(--vscode-list-hoverBackground, #eee); }
+body[data-dsh-vscode] [data-slot='root'] > div { grid-template-columns: 0 minmax(0, 1fr) 0 !important; }
+body[data-dsh-vscode] [data-slot='root'] > div > div:first-of-type { width: 0; overflow: hidden; visibility: hidden; }
+body[data-dsh-vscode] [data-side='sidebar'], body[data-dsh-vscode] [data-width-handle], body[data-dsh-vscode] [data-slot='conversation.hero.workspace'] { display: none !important; }
+body[data-dsh-vscode] [data-slot='conversation.session.header'] [class*='_titleRow'] { display: none; }
+body[data-dsh-vscode] [data-slot='conversation.session.header'] [class$='_header'] { min-height: 0; padding-top: 0; }
+body[data-dsh-vscode] [data-phase] { --dsh-chat-content-width: calc(100% - 32px); --dsh-chat-user-width: calc(100% - 32px); --dsh-composer-card-max-width: 100%; --dsh-composer-side-clearance: 12px; }
+body[data-dsh-vscode] [data-phase='hero'] [data-conversation-scroll] { justify-content: stretch; }
+body[data-dsh-vscode] [data-phase='hero'] [data-composer-seat] { flex: 1; display: flex; min-height: 0; }
+body[data-dsh-vscode] [data-phase='hero'] [class*='_composerStack'] { display: flex; flex-direction: column; flex: 1; align-self: stretch; width: 100%; padding-bottom: 8px; }
+body[data-dsh-vscode] [data-phase='hero'] [class*='_composerStack'] > div:first-child { flex: 1; display: flex; align-items: center; justify-content: center; }
+body[data-dsh-vscode] [class*='_heroWorkspaceRow'] { display: none; }
+body[data-dsh-vscode] [data-composer-seat] { position: sticky; bottom: 0; }
+#vscode-contexts { display: flex; flex-direction: column; gap: 4px; margin: 8px 8px 0; padding: 0; align-self: stretch; }
+body[data-dsh-vscode] [data-composer-card]:has(#vscode-contexts:not(:empty)) { padding-top: 0; }
+body[data-dsh-vscode] [data-composer-card] > [class$='_row'] { flex-wrap: nowrap; }
+body[data-dsh-vscode] [data-composer-card] > [class$='_row'] > [class$='_trailing'] { flex: 0 1 auto; }
+#vscode-contexts:empty { display: none; }
+.vscode-context { display: flex; align-items: center; min-width: 0; padding: 5px 8px; border-radius: 6px; font-size: 12px; background: color-mix(in srgb, var(--dsw-specific-input-major, var(--vscode-editor-background, #fff)), #000 9%); color: var(--dsw-alias-label-secondary, var(--vscode-foreground, #555)); }
+.vscode-context > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.vscode-context button { opacity: 0.7; border: 0; color: inherit; background: transparent; cursor: pointer; }
+.vscode-context:hover button, .vscode-context:focus-within button { opacity: 1; }
+body[data-dsh-vscode='settings'] #vscode-header { display: none; }
+body[data-dsh-vscode='settings'] [data-vscode-settings] { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; visibility: visible; }
+body[data-dsh-vscode='settings'] [data-vscode-settings] * { visibility: visible; }
+/* The official fullscreen right panel anchors to the Webview's top edge, which
+   puts its 38px tab strip — the collapse control and each chip's close control —
+   under the reserved band. Start it below, so a file preview stays closable. */
+body[data-dsh-vscode='chat'] [data-sidebar-right-panel='fullscreen'] { top: var(--vscode-dsh-header-height); }
+/* The official turn rail hides itself below 900px of chat width
+   (@container in TurnNavigator.module.css). An editor tab is routinely narrower
+   than that, and the rail is the Web client's only turn-to-turn navigation, so
+   restore the official geometry at every width: a zero-height sticky slot whose
+   frame floats in the transcript's right gutter, clear of the centred column. */
+body[data-dsh-vscode] [data-conversation-scroll] [class*='_slot']:has(> nav [class*='_marks']) { display: block; }

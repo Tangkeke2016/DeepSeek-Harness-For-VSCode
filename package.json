@@ -1,0 +1,177 @@
+{
+  "name": "deepseek-harness-vscode",
+  "displayName": "DeepSeek Harness",
+  "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
+  "version": "0.1.0",
+  "publisher": "harness-local",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "categories": [
+    "Machine Learning"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./dist/v2-extension.cjs",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "deepseekHarness",
+          "title": "DeepSeek Harness",
+          "icon": "media/whale.svg"
+        }
+      ]
+    },
+    "views": {
+      "deepseekHarness": [
+        {
+          "type": "webview",
+          "id": "deepseekHarness.chat",
+          "name": "DeepSeek Harness"
+        }
+      ]
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "deepseekHarness.reloadView",
+          "when": "activeWebviewPanelId == deepseekHarness.editor || activeWebviewPanelId == deepseekHarness.settings",
+          "group": "navigation@98"
+        },
+        {
+          "command": "deepseekHarness.newEditorSession",
+          "group": "navigation@99"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "deepseekHarness.reloadView",
+        "title": "%reloadView%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "deepseekHarness.newSession",
+        "title": "%newSession%",
+        "icon": {
+          "light": "media/whale-light.svg",
+          "dark": "media/whale-dark.svg"
+        }
+      },
+      {
+        "command": "deepseekHarness.settings",
+        "title": "%settings%"
+      },
+      {
+        "command": "deepseekHarness.open",
+        "title": "%open%"
+      },
+      {
+        "command": "deepseekHarness.connect",
+        "title": "%connect%"
+      },
+      {
+        "command": "deepseekHarness.stop",
+        "title": "%stop%"
+      },
+      {
+        "command": "deepseekHarness.newEditorSession",
+        "title": "%newSession%",
+        "icon": {
+          "light": "media/whale-light.svg",
+          "dark": "media/whale-dark.svg"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "DeepSeek Harness",
+      "properties": {
+        "deepseekHarness.webviewTimeoutSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 5,
+          "maximum": 300,
+          "description": "%webviewTimeout%"
+        },
+        "deepseekHarness.inlineStaticResources": {
+          "type": "boolean",
+          "default": false,
+          "description": "%inlineStatic%"
+        },
+        "deepseekHarness.maxTransferMegabytes": {
+          "type": "number",
+          "default": 64,
+          "minimum": 1,
+          "maximum": 256,
+          "description": "%maxTransfer%"
+        },
+        "deepseekHarness.harnessPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%harnessPath%"
+        },
+        "deepseekHarness.home": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%home%"
+        },
+        "deepseekHarness.startupTimeoutSeconds": {
+          "type": "number",
+          "default": 90,
+          "minimum": 5,
+          "maximum": 600,
+          "description": "%timeout%"
+        },
+        "deepseekHarness.settingsPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%settingsPath%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "parse5": "^7.3.0",
+    "proper-lockfile": "^4.1.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/vscode": "1.95.0",
+    "@types/ws": "^8.5.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "~5.9.0"
+  },
+  "author": "唐可可",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tangkeke2016/deepseek-harness-for-vscode.git"
+  },
+  "homepage": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues"
+  }
+}
