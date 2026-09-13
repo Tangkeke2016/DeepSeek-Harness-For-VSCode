@@ -3,6 +3,7 @@ dist/
 .cache/
 .runtime/
 .test-output/
+tests/
 *.vsix
 *.log
 .env

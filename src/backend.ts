@@ -5,7 +5,7 @@ import { findCli, findNode } from './runtime.ts';
 
 /** Explicit settings for an owned official backend. */
 export interface BackendOptions {
-  cwd: string; harnessPath: string; home: string; startupTimeoutSeconds: number;
+  cwd: string; harnessPath: string; binPath?: string; home: string; startupTimeoutSeconds: number;
 }
 
 /** One child launched through dsh; attached external backends never enter this class. */
@@ -20,7 +20,7 @@ export class Backend {
   /** @param options - Resolved launch settings. @returns Launch URL after the official server announces it. */
   async start(options: BackendOptions): Promise<string> {
     if (this.child) throw new Error('Backend already started');
-    const cli = findCli(options.harnessPath, options.cwd);
+    const cli = findCli(options.harnessPath, options.cwd, options.binPath);
     const node = await findNode();
     this.log(`cli: ${cli}`);
     this.log(`node: ${node.command} (${node.version})`);

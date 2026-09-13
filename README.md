@@ -2,7 +2,7 @@
 
 中文 | [English](README.en.md)
 
-在当前 VS Code 工作区中使用官方 DeepSeek Harness Web 界面，支持独立聊天标签页、历史会话、编辑器选区上下文和设置。作者：唐可可。版本：0.1.0。
+在当前 VS Code 工作区中使用官方 DeepSeek Harness Web 界面，支持独立聊天标签页、历史会话、编辑器选区上下文和设置。作者：唐可可。版本：0.1.1。
 
 这是独立维护的 VS Code 集成项目，不是 DeepSeek 官方扩展。插件不包含 DSH 安装，也不修改官方后台源码。
 
@@ -41,7 +41,7 @@ npm run typecheck
 npm run package
 ```
 
-产物为 `dist/deepseek-harness-vscode-0.1.0.vsix`。在 VS Code 扩展面板的更多操作中选择“从 VSIX 安装…”，选择该文件，再按提示重新加载窗口。仅构建 JavaScript 时运行 `npm run build`。
+产物为 `dist/deepseek-harness-vscode-0.1.1.vsix`。在 VS Code 扩展面板的更多操作中选择“从 VSIX 安装…”，选择该文件，再按提示重新加载窗口。仅构建 JavaScript 时运行 `npm run build`。
 
 源码仓库不提交 `node_modules`、构建产物、VSIX、调试日志、运行数据、旧版代码或开发历史。`package-lock.json` 用于固定插件构建依赖，请保留。安装 VSIX 的使用者不需要插件源码或 npm 构建依赖，但仍需要 Node.js 和已经安装好的 DSH。
 
@@ -75,3 +75,9 @@ npm run package
 ## 许可证
 
 [MIT](LICENSE)。第三方依赖和图标声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 首次启动引导
+
+插件启动时检查可用 Node.js 和官方 DSH bin.js。缺少环境时显示鲸鱼、“探索未至之境”和“预览版”，分别列出 Node 或 DSH 问题。Node 提示提供官方下载链接；DSH 提示可填写 bin.js 文件绝对路径或完整安装目录，校验通过后保存到当前运行主机的 VS Code 用户设置（settings.json），随后自动重新检查并加载。输入无效或取消时不保存。
+
+`deepseekHarness.binPath` 指定 bin.js 文件，优先于 `deepseekHarness.harnessPath`。通过引导填写 DSH 目录会清除旧 binPath；直接编辑配置时也需清除冲突的 binPath。只检查入口是否为可读文件，不代替完整 DSH 依赖安装验证；启动失败会显示重试提示。外接后台无需检查本机 Node/DSH。等待后台和官方界面时显示 Harness 旋转加载页。SSH 下所有路径均指向远程主机；更新 PATH 后应重启 VS Code。

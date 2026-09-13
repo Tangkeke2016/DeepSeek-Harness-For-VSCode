@@ -4,9 +4,11 @@ import { randomBytes } from 'node:crypto';
 import { join, relative, isAbsolute, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { access } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { SharedBackend } from '../shared-backend.ts';
 import { Transport } from '../transport.ts';
-import { expandHome } from '../runtime.ts';
+import { expandHome, findCli, findNode } from '../runtime.ts';
+import { startupCopy, startupHtml, type StartupState } from './startup.ts';
 import { record, redact } from '../protocol.ts';
 import { WebRelay } from './relay.ts';
 import { webviewHtml } from './html.ts';
@@ -144,7 +146,7 @@ class Application implements vscode.Disposable {
       const home = settings.get<string>('home', '') || process.env.DSH_HOME?.trim() || join(homedir(), '.dsh');
       const expanded = expandHome(home);
       this.settingsDocument = join(resolve(cwd, expanded), 'settings.yaml');
-      this.launch = this.backend.start({ cwd, harnessPath: settings.get('harnessPath', ''), home: resolve(cwd, expanded),
+      this.launch = this.backend.start({ cwd, harnessPath: settings.get('harnessPath', ''), binPath: settings.get('binPath', ''), home: resolve(cwd, expanded),
         startupTimeoutSeconds: settings.get('startupTimeoutSeconds', 90) });
       this.launch.catch(() => { this.launch = undefined; });
     }
@@ -170,10 +172,19 @@ class Application implements vscode.Disposable {
     const timeout = vscode.workspace.getConfiguration('deepseekHarness').get('webviewTimeoutSeconds', 60) * 1000;
     const phase = (name: string): void => this.output.appendLine(`view ${generation}: ${name}`);
     phase('loading');
+    view.surface.webview.options = { enableScripts: true };
     view.surface.webview.html = this.status(text.loading);
     let transport: Transport | undefined;
     try {
       const cwd = view.editorTab ? view.cwd : this.workspace().uri.fsPath; view.cwd = cwd;
+      if (!this.attachedUrl && !this.launch) {
+        const settings = vscode.workspace.getConfiguration('deepseekHarness');
+        const failures: StartupState = {};
+        try { await findNode(); } catch (error) { failures.nodeError = redact(String(error)); }
+        try { findCli(settings.get('harnessPath', ''), cwd, settings.get('binPath', '')); } catch (error) { failures.binError = redact(String(error)); }
+        if (!active()) return;
+        if (failures.nodeError !== undefined || failures.binError !== undefined) { view.surface.webview.html = this.setupPage(failures); return; }
+      }
       const url = await this.backendUrl(cwd);
       if (!active()) return;
       phase('backend ready');
@@ -230,9 +241,31 @@ class Application implements vscode.Disposable {
   }
 
   private status(message: string, retry = false): string {
-    const escape = (value: string): string => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
-    const nonce = randomBytes(18).toString('base64');
-    return `<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'"><style>html,body{margin:0;min-height:100%;background:var(--vscode-editor-background);color:var(--vscode-foreground)}body{font:13px var(--vscode-font-family);box-sizing:border-box;padding:16px}button{padding:6px 14px}</style><p role="status">${escape(message)}</p>${retry ? `<button id="retry">${copy(vscode.env.language).retry}</button><script nonce="${nonce}">const api=acquireVsCodeApi();document.getElementById('retry').onclick=()=>api.postMessage({kind:'retry'})</script>` : ''}`;
+    return this.setupPage({ message: message === copy(vscode.env.language).loading ? startupCopy(vscode.env.language).loading : message, retry });
+  }
+
+  private setupPage(state: StartupState): string {
+    return startupHtml(vscode.env.language, randomBytes(18).toString('base64'), readFileSync(join(this.context.extensionPath, 'media/whale.svg'), 'utf8'), state);
+  }
+
+  private async configureRuntime(view: View, directory: boolean): Promise<void> {
+    const t = startupCopy(vscode.env.language);
+    const settings = vscode.workspace.getConfiguration('deepseekHarness');
+    const validate = (input: string): string | undefined => {
+      try { findCli(directory ? input : '', view.cwd, directory ? '' : input); return input.trim() ? undefined : t.invalid; }
+      catch { return t.invalid; }
+    };
+    const value = await vscode.window.showInputBox({ prompt: directory ? t.directoryPrompt : t.binPrompt, ignoreFocusOut: true, validateInput: validate });
+    if (value === undefined || view.disposed) return;
+    const error = validate(value); if (error) throw new Error(error);
+    if (directory) {
+      // Store the resolved entry first so an interrupted settings write still selects this runtime.
+      await settings.update('binPath', findCli(value.trim(), view.cwd), vscode.ConfigurationTarget.Global);
+      await settings.update('harnessPath', expandHome(value.trim()), vscode.ConfigurationTarget.Global);
+      await settings.update('binPath', undefined, vscode.ConfigurationTarget.Global);
+    } else await settings.update('binPath', expandHome(value.trim()), vscode.ConfigurationTarget.Global);
+    this.output.appendLine(t.saved);
+    this.reset(view); await this.load(view);
   }
 
   private async receive(view: View, value: unknown): Promise<void> {
@@ -243,6 +276,9 @@ class Application implements vscode.Disposable {
     if (view.relay && await view.relay.receive(value)) return;
     const message = record(value);
     switch (message.kind) {
+      case 'setup-bin': await this.configureRuntime(view, false); break;
+      case 'setup-directory': await this.configureRuntime(view, true); break;
+      case 'setup-node-download': await vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/en/download')); break;
       case 'retry': this.reset(view); await this.load(view); break;
       case 'client-failure': this.failed(view, new Error(String(message.error))); break;
       case 'client-diagnostic': this.output.appendLine(`client: ${redact(String(message.error))}`); break;

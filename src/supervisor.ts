@@ -38,7 +38,7 @@ async function main(): Promise<void> {
   if (previous && await probe(previous)) { await release(); return; }
   await writeFile(logPath, '', { mode: 0o600 });
   const token = randomBytes(32).toString('hex');
-  const status: SharedStatus = { state: 'starting', cli: findCli(options.harnessPath, options.cwd), home: options.home };
+  const status: SharedStatus = { state: 'starting', cli: findCli(options.harnessPath, options.cwd, options.binPath), home: options.home };
   let startup: Promise<string> | undefined;
   let stopping: Promise<void> | undefined;
   const server = createServer((request, response) => {

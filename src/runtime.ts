@@ -1,9 +1,9 @@
 /** Locates the Node.js executable and the official CLI that launch an owned backend. */
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, accessSync, constants } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
-import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 
 /** Lowest supported Node.js; the official packages declare `^22.19 || >=24`. */
 const MINIMUM_MAJOR = 22;
@@ -39,7 +39,7 @@ export function nodeSupported(version: string): boolean {
   const match = /^v?(\d+)\.(\d+)(?:\.|$)/.exec(version.trim());
   if (!match) return false;
   const major = Number(match[1]);
-  return major > MINIMUM_MAJOR || (major === MINIMUM_MAJOR && Number(match[2]) >= MINIMUM_MINOR);
+  return major >= 24 || (major === MINIMUM_MAJOR && Number(match[2]) >= MINIMUM_MINOR);
 }
 
 /** Installation roots that hold a `node` executable directly. */
@@ -124,7 +124,7 @@ export async function pickNode(candidates: readonly NodeCandidate[]): Promise<No
     rejected.push(`${candidate.command} (${version})`);
   }
   const found = rejected.length ? ` Found ${rejected.join(', ')}.` : '';
-  throw new Error(`Node.js ${String(MINIMUM_MAJOR)}.${String(MINIMUM_MINOR)} or newer is required to launch the Harness.${found} Install Node.js and make sure it is on PATH.`);
+  throw new Error(`Node.js 22.19+ (22.x) or 24+ is required to launch the Harness.${found} Install Node.js and make sure it is on PATH.`);
 }
 
 /** @returns The Node.js of this machine that launches the backend. */
@@ -139,15 +139,24 @@ export function findNode(): Promise<NodeRuntime> {
  * this fails instead of silently launching a different installation.
  * @param harnessPath - Configured Harness installation directory; empty discovers one.
  * @param cwd - Workspace folder used for discovery.
+ * @param binPath - Explicit official bin.js path; takes precedence over the directory.
  * @returns Absolute path of the official `lib/bin.js` entry.
  */
-export function findCli(harnessPath: string, cwd: string): string {
+export function findCli(harnessPath: string, cwd: string, binPath = ''): string {
+  if (binPath.trim()) {
+    const file = expandHome(binPath.trim());
+    if (!isAbsolute(file) || basename(file) !== 'bin.js') throw new Error('binPath must be an absolute path to the official bin.js');
+    if (!statSync(file).isFile()) throw new Error('binPath must be a file');
+    accessSync(file, constants.R_OK);
+    return file;
+  }
   const configured = harnessPath.trim();
   if (configured) {
     const root = expandHome(configured);
     if (!isAbsolute(root)) throw new Error('deepseekHarness.harnessPath must be an absolute directory path');
-    const located = CLI_ENTRIES.map(entry => join(root, entry)).find(existsSync);
+    const located = CLI_ENTRIES.map(entry => join(root, entry)).find(file => existsSync(file) && statSync(file).isFile());
     if (!located) throw new Error(`deepseekHarness.harnessPath holds no built Harness CLI (expected ${CLI_ENTRIES.join(', ')}): ${root}`);
+    accessSync(located, constants.R_OK);
     return located;
   }
   const candidates = [join(cwd, CLI_ENTRIES[0])];
@@ -165,5 +174,7 @@ export function findCli(harnessPath: string, cwd: string): string {
   }
   const found = candidates.find(existsSync);
   if (!found) throw new Error('Official Harness not found. Set deepseekHarness.harnessPath to the Harness installation directory.');
+  if (!statSync(found).isFile()) throw new Error('Official Harness CLI must be a file');
+  accessSync(found, constants.R_OK);
   return found;
 }

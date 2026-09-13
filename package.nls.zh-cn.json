@@ -11,5 +11,6 @@
   "harnessPath": "Harness 安装目录：包含 apps/cli/lib/bin.js 的仓库，或已安装的 @deepseek-ai/dsh 包。留空时从工作区或全局 npm 安装中查找，Node.js 自动定位。",
   "home": "Harness 数据目录。留空使用官方默认目录。修改后需显式停止共享后台再打开聊天。",
   "timeout": "等待后台输出启动 URL 的最长秒数。",
-  "settingsPath": "自定义或外接后台的设置文件绝对路径（可选）。"
+  "settingsPath": "自定义或外接后台的设置文件绝对路径（可选）。",
+  "binPath": "官方 DSH bin.js 文件的绝对路径，优先于 harnessPath。请在运行插件的主机上设置。"
 }

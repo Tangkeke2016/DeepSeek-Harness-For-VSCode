@@ -46,7 +46,7 @@ export class SharedBackend {
   /** @param options - Official profile settings. @returns Existing or newly started server's launch URL. */
   start(options: BackendOptions): Promise<string> { return this.pending ??= this.connect(options); }
   private async connect(options: BackendOptions): Promise<string> {
-    const cli = findCli(options.harnessPath, options.cwd);
+    const cli = findCli(options.harnessPath, options.cwd, options.binPath);
     const home = resolve(options.cwd, options.home);
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const deadline = Date.now() + options.startupTimeoutSeconds * 1000;
