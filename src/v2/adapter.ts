@@ -30,8 +30,8 @@ const id = '@deepseek-ai/dsh-vscode-client';
 const hmr = '@deepseek-ai/dsh-client-hmr';
 global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.id !== hmr);
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.2', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.2', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.3', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.3', entries: [id] });
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };

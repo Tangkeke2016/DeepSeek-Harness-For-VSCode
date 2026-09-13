@@ -1,8 +1,8 @@
 {
   "name": "tangkeke-deepseek-harness",
-  "displayName": "DeepSeek Harness: Everything is a Plugin",
+  "displayName": "DeepSeek Harness – Everything is a Plugin",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "TangKeke",
   "private": true,
   "type": "module",
@@ -13,7 +13,18 @@
     "node": "^22.19.0 || >=24.0.0"
   },
   "categories": [
-    "Machine Learning"
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "deepseek",
+    "harness",
+    "deepseek harness",
+    "everything is a plugin",
+    "ai",
+    "chat",
+    "agent",
+    "coding"
   ],
   "extensionKind": [
     "workspace"
