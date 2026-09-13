@@ -279,6 +279,7 @@ class Application implements vscode.Disposable {
       case 'setup-bin': await this.configureRuntime(view, false); break;
       case 'setup-directory': await this.configureRuntime(view, true); break;
       case 'setup-node-download': await vscode.env.openExternal(vscode.Uri.parse('https://nodejs.org/en/download')); break;
+      case 'setup-dsh-project': await vscode.env.openExternal(vscode.Uri.parse('https://github.com/deepseek-ai/deepseek-harness')); break;
       case 'retry': this.reset(view); await this.load(view); break;
       case 'client-failure': this.failed(view, new Error(String(message.error))); break;
       case 'client-diagnostic': this.output.appendLine(`client: ${redact(String(message.error))}`); break;
