@@ -2,7 +2,7 @@
 
 [中文](README.md) | English
 
-Use the official DeepSeek Harness Web interface in the current VS Code workspace, with independent chat tabs, session history, editor selection context, and settings. Author: 唐可可. Version: 0.1.1.
+Use the official DeepSeek Harness Web interface in the current VS Code workspace, with independent chat tabs, session history, editor selection context, and settings.
 
 This independently maintained VS Code integration is not an official DeepSeek extension. It does not include a DSH installation or modify the official backend source.
 
@@ -78,8 +78,8 @@ Official Harness APIs and the Web interface are evolving; compatibility with eve
 
 ## First-start setup
 
-The extension checks Node.js and the official DSH bin.js before starting its backend. Missing prerequisites show the whale, “Explore the Uncharted”, and “Preview”, with separate Node and DSH diagnostics. The Node prompt links to the official download page. DSH setup accepts an absolute bin.js file path or a complete installation directory, validates it, saves it to VS Code user settings (settings.json) on the extension host, then checks again and loads automatically. Invalid or cancelled input is not saved.
+The extension checks Node.js and the official DSH bin.js before starting its backend. Missing prerequisites show the whale and “Explore the Uncharted”, with separate Node and DSH diagnostics. Setup headings, Node/DSH guidance, download links, and buttons follow the active VS Code display language: Chinese for Chinese locales and English for English locales. Original diagnostic details are available in Output → DeepSeek Harness. The Node prompt links to the official download page. DSH setup accepts an absolute bin.js file path or a complete installation directory, validates it, saves it to VS Code user settings (settings.json) on the extension host, then checks again and loads automatically. Invalid or cancelled input is not saved.
 
 `deepseekHarness.binPath` selects a bin.js file and takes precedence over `deepseekHarness.harnessPath`. Choosing a DSH directory in setup clears the old binPath; clear a conflicting binPath when editing settings manually too. Entry validation checks a readable file, not the full DSH dependency installation; backend failures provide retry. External backends do not require local Node/DSH checks. A Harness spinner appears while the backend and official interface load. SSH paths refer to the remote host; restart VS Code after updating PATH.
 
-The DSH setup message links to the [official project](https://github.com/deepseek-ai/deepseek-harness). The Enter bin.js path, Enter DSH directory, and Reload buttons use the whale blue. Reload checks the environment again and attempts to load the page.
+The DSH setup message includes a parenthesized link after “Official DSH” to the [official project](https://github.com/deepseek-ai/deepseek-harness). The Enter bin.js path, Enter DSH directory, and Reload buttons use the whale blue. Reload checks the environment again and attempts to load the page.

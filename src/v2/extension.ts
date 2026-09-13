@@ -180,8 +180,8 @@ class Application implements vscode.Disposable {
       if (!this.attachedUrl && !this.launch) {
         const settings = vscode.workspace.getConfiguration('deepseekHarness');
         const failures: StartupState = {};
-        try { await findNode(); } catch (error) { failures.nodeError = redact(String(error)); }
-        try { findCli(settings.get('harnessPath', ''), cwd, settings.get('binPath', '')); } catch (error) { failures.binError = redact(String(error)); }
+        try { await findNode(); } catch (error) { failures.nodeError = redact(String(error)); this.output.appendLine(failures.nodeError); }
+        try { findCli(settings.get('harnessPath', ''), cwd, settings.get('binPath', '')); } catch (error) { failures.binError = redact(String(error)); this.output.appendLine(failures.binError); }
         if (!active()) return;
         if (failures.nodeError !== undefined || failures.binError !== undefined) { view.surface.webview.html = this.setupPage(failures); return; }
       }
