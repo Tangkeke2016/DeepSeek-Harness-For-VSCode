@@ -46,15 +46,17 @@ export class WebRelay {
       const controller = new AbortController(); this.requests.set(id, controller);
       try {
         const path = string(message.path);
+        const parsed = new URL(path, 'https://relay.invalid');
+        if (parsed.origin !== 'https://relay.invalid' || path !== parsed.pathname + parsed.search) throw new Error('Invalid backend path');
         const routes = kind === 'bundle' ? ['/plugins/'] : ['/api/', '/plugins/', '/open-in-app/'];
-        if (!routes.some(prefix => path.startsWith(prefix)) || /[\r\n]/.test(path)) throw new Error('Unsupported backend route');
+        if (!(routes.some(prefix => path.startsWith(prefix)) || (kind === 'fetch' && path === '/favicon.svg')) || /[\r\n]/.test(path)) throw new Error('Unsupported backend route');
         if (kind === 'bundle') {
           const response = await (this.bundleFetch ? this.bundleFetch(path, controller.signal) : this.transport.request(path, { signal: controller.signal }));
           if (!response.ok) throw new Error(`Client bundle HTTP ${response.status}`);
           this.emit({ kind: 'reply', id, value: (await this.read(response)).toString('utf8') });
         } else {
           const method = string(message.method);
-          if (!['GET', 'HEAD', 'POST'].includes(method)) throw new Error('Unsupported backend method');
+          if (!(path.startsWith('/plugins/') ? ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] : ['GET', 'HEAD', 'POST']).includes(method)) throw new Error('Unsupported backend method');
           const encoded = string(message.body);
           if (encoded.length > Math.ceil(this.maxBytes / 3) * 4) throw new Error('Attachment exceeds the VS Code transfer limit');
           const headers = new Headers();
@@ -63,7 +65,7 @@ export class WebRelay {
             if (['content-type', 'accept', 'range'].includes(name.toLowerCase())) headers.set(name, value);
           }
           const body = Buffer.from(encoded, 'base64');
-          const response = await this.transport.request(path, { method, headers, ...(method === 'POST' ? { body } : {}), signal: controller.signal });
+          const response = await this.transport.request(path, { method, headers, ...(!['GET', 'HEAD'].includes(method) ? { body } : {}), signal: controller.signal });
           let bytes = await this.read(response);
           if (response.headers.get('content-type')?.includes('application/json')) bytes = Buffer.from(JSON.stringify(presentation(JSON.parse(bytes.toString('utf8')))));
           this.emit({ kind: 'reply', id, status: response.status,

@@ -1,5 +1,5 @@
 {
-  "name": "deepseek-harness-vscode",
+  "name": "tangkeke-deepseek-harness",
   "displayName": "DeepSeek Harness",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
   "version": "0.1.1",
@@ -174,9 +174,9 @@
   "author": "唐可可",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Tangkeke2016/deepseek-harness-for-vscode.git"
+    "url": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode.git"
   },
-  "homepage": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode#readme",
+  "homepage": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode",
   "bugs": {
     "url": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues"
   }

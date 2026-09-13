@@ -1,6 +1,7 @@
 /** Browser side of the Webview carrier; official client plugins retain their own protocol and recovery logic. */
 import { contextText, type EditorContext } from './messages.ts';
 import type { ViewConfig } from './html.ts';
+import { bridgePluginResources } from './plugin-resources.ts';
 import { followEditorTheme } from './theme.ts';
 import { MessageAssembly } from './assembly.ts';
 
@@ -58,7 +59,7 @@ function call(kind: string, payload: Record<string, unknown>, signal?: AbortSign
 async function bridgedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const requested = input instanceof Request ? input.url : String(input);
   const url = new URL(requested, location.href);
-  if (!['/api/', '/plugins/', '/open-in-app/'].some(prefix => url.pathname.startsWith(prefix))) return nativeFetch(input, init);
+  if (url.origin !== location.origin || !(url.pathname === '/favicon.svg' || ['/api/', '/plugins/', '/open-in-app/'].some(prefix => url.pathname.startsWith(prefix)))) return nativeFetch(input, init);
   const request = new Request(input instanceof Request ? input : url, init);
   let bytes = new Uint8Array(await request.arrayBuffer());
   if (url.pathname === '/api/settings/openSettingsDocument' && request.method === 'POST') {
@@ -141,6 +142,7 @@ global.__DSH_TRANSPORT__ = {
   },
 };
 window.fetch = bridgedFetch;
+window.addEventListener('unload', bridgePluginResources(bridgedFetch), { once: true });
 Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async (text: string): Promise<void> => { await call('clipboard', { text }); } });
 window.addEventListener('focus', () => api.postMessage({ kind: 'focus' }));
 document.addEventListener('click', event => {

@@ -10,11 +10,11 @@
 
 1. 安装桌面版 VS Code 1.95 或更高版本，以及 Node.js 22.19+ 的 22.x 或 24+。将 Node.js 加入 PATH，终端执行 `node --version` 确认；修改 PATH 后重启 VS Code。
 2. 准备已安装依赖并完成构建的 [官方 DSH](https://github.com/deepseek-ai/deepseek-harness)。Remote SSH 用户在远程服务器准备这些环境。
-3. 从本项目 [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases) 下载 VSIX，通过“扩展：从 VSIX 安装”安装。旧发布者 harness-local 的版本需先卸载，避免重复启用。
+3. 从本项目 [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases) 下载 VSIX，通过“扩展：从 VSIX 安装”安装。旧的 harness-local 版本或 TangKeke.deepseek-harness-vscode 需先卸载，避免与新的 TangKeke.tangkeke-deepseek-harness 重复启用。
 4. 打开项目工作区，点击鲸鱼图标。环境引导中点击“选择 DSH 目录”或“选择 bin 文件”；文件选择器由 VS Code 根据当前连接决定路径来源。
 5. 路径校验失败会提示并重新打开选择器，取消即可停止。有效选择自动保存并尝试加载，无需点击重新加载按钮。Node.js 缺失需先安装 Node.js。
 
-后台由扩展自动启动，无需手动运行 `pnpm dsh web`。模型凭据在官方设置页面或后台环境中配置。
+后台一旦启动，不会随聊天页关闭、VS Code 退出或 SSH 断开而自动关闭。需要停止时，在命令面板执行“停止当前用户的共享后台”（搜索 Shared Backend）。后台由扩展自动启动，无需手动运行 `pnpm dsh web`。模型凭据在官方设置页面或后台环境中配置。
 
 ### bin.js 在哪里
 
@@ -46,11 +46,11 @@ Use DeepSeek Harness in your VS Code workspace with independent chat tabs, sessi
 
 1. Install desktop VS Code 1.95+ and Node.js 22.x starting at 22.19, or 24+. Add Node.js to PATH and confirm `node --version`. Restart VS Code after changing PATH.
 2. Prepare the [official DSH runtime](https://github.com/deepseek-ai/deepseek-harness), including dependencies and build outputs. For Remote SSH, prepare it on the server.
-3. Install the VSIX from [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases). Uninstall the old harness-local extension first if present.
+3. Install the VSIX from [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases). Uninstall old harness-local or TangKeke.deepseek-harness-vscode installations first; the new extension ID is TangKeke.tangkeke-deepseek-harness.
 4. Open a workspace and click the whale. Choose **Select DSH folder** or **Select bin file**. VS Code chooses the filesystem for the current connection.
 5. Invalid paths display an error and reopen the picker; cancel to stop. Valid selections are saved and loading starts automatically. Install Node.js first if it is missing.
 
-The extension starts the backend automatically; no manual `pnpm dsh web` command is needed. Configure model credentials through official settings or the backend environment.
+Once started, the backend does not automatically stop when chat pages close, VS Code exits, or SSH disconnects. Stop it explicitly using the Stop Current User's Shared Backend command. The extension starts the backend automatically; no manual `pnpm dsh web` command is needed. Configure model credentials through official settings or the backend environment.
 
 ### Find bin.js
 
@@ -67,3 +67,9 @@ Report problems at [GitHub Issues](https://github.com/Tangkeke2016/deepseek-harn
 This README contains both languages with navigation at the top; VS Code does not automatically switch the extension details README by display language. Setup UI text follows the display language. Light themes use black text, dark themes white text; button labels stay white.
 
 [Back to top](#deepseek-harness-for-vs-code)
+
+### DSH 插件 / DSH plugins
+
+额外插件安装到相同 DSH_HOME 的 web profile。安装后等待任务结束，手动停止共享后台，再打开聊天以加载插件；仅关闭页面不会重启后台。支持通过转发加载插件图片、动态脚本及 REST 设置请求。桌宠 dsh-pet-remielle 0.4.0 的 GIF 和辅助脚本已验证；原生 EventSource 尚未转发，桌宠通过自带的轮询回退更新状态。
+
+Install DSH plugins into the web profile under the same DSH_HOME. After active tasks finish, stop the shared backend and reopen chat to load newly installed plugins. Plugin images, dynamic scripts, and REST settings requests use the authenticated carrier. Remielle 0.4.0 GIFs and helper scripts have been checked; native EventSource is not bridged, so Remielle uses its polling fallback.
