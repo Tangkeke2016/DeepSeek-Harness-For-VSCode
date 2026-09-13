@@ -1,6 +1,6 @@
 {
   "name": "tangkeke-deepseek-harness",
-  "displayName": "DeepSeek Harness",
+  "displayName": "DeepSeek Harness: Everything is a Plugin",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
   "version": "0.1.1",
   "publisher": "TangKeke",
