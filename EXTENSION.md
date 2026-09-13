@@ -32,6 +32,10 @@
 
 编辑器右上角鲸鱼按钮打开独立聊天标签页。关闭页面不会停止后台任务；要停止扩展管理的后台，运行命令 `DeepSeek Harness: Stop Current User’s Shared Backend`（可搜索 Shared Backend）。修改后台安装或插件后，停止后台再打开聊天。
 
+### DSH 插件
+
+额外插件安装到相同 DSH_HOME 的 web profile。安装后等待任务结束，手动停止共享后台，再打开聊天以加载插件；仅关闭页面不会重启后台。支持通过转发加载插件图片、动态脚本及 REST 设置请求。
+
 ### 遇到问题
 
 请前往 [项目 Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) 提交问题，说明操作步骤、系统、VS Code/DSH 版本以及是否使用 Remote SSH。日志位于“输出 → DeepSeek Harness”；分享前删除令牌、API Key 和私人路径等敏感信息。扩展不会自动安装或升级 DSH，第三方 DSH 插件兼容性取决于对应版本。
@@ -66,10 +70,8 @@ Report problems at [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harn
 
 This README contains both languages with navigation at the top; VS Code does not automatically switch the extension details README by display language. Setup UI text follows the display language. Light themes use black text, dark themes white text; button labels stay white.
 
+### DSH plugins
+
+Install DSH plugins into the web profile under the same DSH_HOME. After active tasks finish, stop the shared backend and reopen chat to load newly installed plugins. Plugin images, dynamic scripts, and REST settings requests use the authenticated carrier.
+
 [Back to top](#deepseek-harness-for-vs-code)
-
-### DSH 插件 / DSH plugins
-
-额外插件安装到相同 DSH_HOME 的 web profile。安装后等待任务结束，手动停止共享后台，再打开聊天以加载插件；仅关闭页面不会重启后台。支持通过转发加载插件图片、动态脚本及 REST 设置请求。桌宠 dsh-pet-remielle 0.4.0 的 GIF 和辅助脚本已验证；原生 EventSource 尚未转发，桌宠通过自带的轮询回退更新状态。
-
-Install DSH plugins into the web profile under the same DSH_HOME. After active tasks finish, stop the shared backend and reopen chat to load newly installed plugins. Plugin images, dynamic scripts, and REST settings requests use the authenticated carrier. Remielle 0.4.0 GIFs and helper scripts have been checked; native EventSource is not bridged, so Remielle uses its polling fallback.
