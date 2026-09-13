@@ -2,8 +2,6 @@
 !package.json
 !package.nls.json
 !package.nls.zh-cn.json
-!README.md
-!README.en.md
 !LICENSE
 !THIRD_PARTY_NOTICES.md
 !dist/v2-extension.cjs
@@ -13,3 +11,4 @@
 !dist/*.LEGAL.txt
 !webview/v2.css
 !media/**
+!EXTENSION.md
