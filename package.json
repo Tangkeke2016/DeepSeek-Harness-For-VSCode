@@ -3,7 +3,7 @@
   "displayName": "DeepSeek Harness",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
   "version": "0.1.1",
-  "publisher": "harness-local",
+  "publisher": "TangKeke",
   "private": true,
   "type": "module",
   "license": "MIT",

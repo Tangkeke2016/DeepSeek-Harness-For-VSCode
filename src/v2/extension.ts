@@ -258,7 +258,6 @@ class Application implements vscode.Disposable {
     const selected = await vscode.window.showOpenDialog({
       title: directory ? t.directoryPrompt : t.binPrompt, openLabel: directory ? t.directoryAction : t.binAction,
       canSelectFiles: !directory, canSelectFolders: directory, canSelectMany: false,
-      defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
       ...(directory ? {} : { filters: { JavaScript: ['js'] } }),
     });
     const value = selected?.[0]?.fsPath;
