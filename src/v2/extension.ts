@@ -255,7 +255,13 @@ class Application implements vscode.Disposable {
       try { findCli(directory ? input : '', view.cwd, directory ? '' : input); return input.trim() ? undefined : t.invalid; }
       catch { return t.invalid; }
     };
-    const value = await vscode.window.showInputBox({ prompt: directory ? t.directoryPrompt : t.binPrompt, ignoreFocusOut: true, validateInput: validate });
+    const selected = await vscode.window.showOpenDialog({
+      title: directory ? t.directoryPrompt : t.binPrompt, openLabel: directory ? t.directoryAction : t.binAction,
+      canSelectFiles: !directory, canSelectFolders: directory, canSelectMany: false,
+      defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+      ...(directory ? {} : { filters: { JavaScript: ['js'] } }),
+    });
+    const value = selected?.[0]?.fsPath;
     if (value === undefined || view.disposed) return;
     const error = validate(value); if (error) throw new Error(error);
     if (directory) {

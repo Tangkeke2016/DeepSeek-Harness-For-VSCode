@@ -78,6 +78,6 @@ npm run package
 
 ## 首次启动引导
 
-加载页标题和正文在浅色主题显示黑字，深色主题显示白字；按钮保持白字蓝底。插件启动时检查可用 Node.js 和官方 DSH bin.js。缺少环境时显示鲸鱼和“探索未至之境”，分别列出 Node 或 DSH 问题。引导标题、Node/DSH 提示、下载链接和按钮跟随 VS Code 当前显示语言：中文显示中文版，英文显示英文版；原始诊断详情可在“输出 → DeepSeek Harness”查看。Node 提示提供官方下载链接；两个官方链接均由 VS Code 在外部浏览器打开。DSH 提示在“未找到官方 DSH”后的括号中提供[官方项目链接](https://github.com/deepseek-ai/deepseek-harness)，可填写 bin.js 文件绝对路径或完整安装目录，校验通过后保存到当前运行主机的 VS Code 用户设置（settings.json），随后自动重新检查并加载。输入无效或取消时不保存。“填写 bin.js 路径”“填写 DSH 目录”和“重新加载”按钮使用与鲸鱼一致的蓝色；点击“重新加载”会重新检查环境并尝试加载页面。
+加载页标题和正文在浅色主题显示黑字，深色主题显示白字；按钮保持白字蓝底。插件启动时检查可用 Node.js 和官方 DSH bin.js。缺少环境时显示鲸鱼和“探索未至之境”，分别列出 Node 或 DSH 问题。引导标题、Node/DSH 提示、下载链接和按钮跟随 VS Code 当前显示语言：中文显示中文版，英文显示英文版；原始诊断详情可在“输出 → DeepSeek Harness”查看。Node 提示提供官方下载链接；两个官方链接均由 VS Code 在外部浏览器打开。DSH 提示在“未找到官方 DSH”后的括号中提供[官方项目链接](https://github.com/deepseek-ai/deepseek-harness)，可通过文件选择器选择 bin.js 文件或通过目录选择器选择完整安装目录，校验通过后保存到当前运行主机的 VS Code 用户设置（settings.json），随后自动重新检查并加载。选择无效或取消时不保存。“选择 bin 文件”“选择 DSH 目录”和“重新加载”按钮使用与鲸鱼一致的蓝色；点击“重新加载”会重新检查环境并尝试加载页面。
 
-`deepseekHarness.binPath` 指定 bin.js 文件，优先于 `deepseekHarness.harnessPath`。通过引导填写 DSH 目录会清除旧 binPath；直接编辑配置时也需清除冲突的 binPath。只检查入口是否为可读文件，不代替完整 DSH 依赖安装验证；启动失败会显示重试提示。外接后台无需检查本机 Node/DSH。等待后台和官方界面时显示 Harness 旋转加载页。SSH 下所有路径均指向远程主机；更新 PATH 后应重启 VS Code。
+`deepseekHarness.binPath` 指定 bin.js 文件，优先于 `deepseekHarness.harnessPath`。通过引导选择 DSH 目录会清除旧 binPath；直接编辑配置时也需清除冲突的 binPath。只检查入口是否为可读文件，不代替完整 DSH 依赖安装验证；启动失败会显示重试提示。外接后台无需检查本机 Node/DSH。等待后台和官方界面时显示 Harness 旋转加载页。SSH 下所有路径均指向远程主机；更新 PATH 后应重启 VS Code。
