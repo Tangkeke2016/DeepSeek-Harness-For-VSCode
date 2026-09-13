@@ -14,7 +14,7 @@
 
 ## 安装与启动
 
-1. 从 [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases) 下载 `tangkeke-deepseek-harness-0.1.1.vsix`。
+1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.1.vsix`。
 2. 在 VS Code 扩展面板中选择“从 VSIX 安装…”，安装后按提示重新加载窗口。
 3. 打开并信任项目工作区，点击编辑器右上角鲸鱼按钮，或在命令面板搜索 `DeepSeek Harness` 打开聊天。
 4. 首次启动缺少 DSH 路径时，点击“选择 DSH 目录”或“选择 bin 文件”。有效选择会保存并自动尝试加载；无效选择会提示并重新打开选择器，取消即可停止。
@@ -43,6 +43,6 @@ pnpm dsh plugin --profile web add <插件包名>
 
 ## 问题反馈与开发
 
-遇到问题请前往 [GitHub Issues](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues)，提供复现步骤、系统、VS Code/DSH 版本以及是否使用 Remote SSH。诊断信息位于“输出 → DeepSeek Harness”；分享前移除 API Key、令牌及私人信息。不同 DSH 或第三方插件版本的兼容性可能不同。
+遇到问题请前往 [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues)，提供复现步骤、系统、VS Code/DSH 版本以及是否使用 Remote SSH。诊断信息位于“输出 → DeepSeek Harness”；分享前移除 API Key、令牌及私人信息。不同 DSH 或第三方插件版本的兼容性可能不同。
 
 源码构建与贡献步骤见 [CONTRIBUTING.md](CONTRIBUTING.md)。本项目采用 [MIT 许可证](LICENSE)，第三方声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

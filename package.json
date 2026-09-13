@@ -174,10 +174,10 @@
   "author": "唐可可",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode.git"
+    "url": "https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode.git"
   },
-  "homepage": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode",
+  "homepage": "https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode",
   "bugs": {
-    "url": "https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues"
+    "url": "https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues"
   }
 }

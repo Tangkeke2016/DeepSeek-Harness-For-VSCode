@@ -1,6 +1,6 @@
 # DeepSeek Harness for VS Code
 
-[中文](#中文使用指南) · [English](#english-guide) · [项目主页](https://github.com/Tangkeke2016/deepseek-harness-for-vscode) · [反馈问题](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues)
+[中文](#中文使用指南) · [English](#english-guide) · [项目主页](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode) · [反馈问题](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues)
 
 ## 中文使用指南
 
@@ -10,7 +10,7 @@
 
 1. 安装桌面版 VS Code 1.95 或更高版本，以及 Node.js 22.19+ 的 22.x 或 24+。将 Node.js 加入 PATH，终端执行 `node --version` 确认；修改 PATH 后重启 VS Code。
 2. 准备已安装依赖并完成构建的 [官方 DSH](https://github.com/deepseek-ai/deepseek-harness)。Remote SSH 用户在远程服务器准备这些环境。
-3. 从本项目 [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases) 下载 VSIX，通过“扩展：从 VSIX 安装”安装。旧的 harness-local 版本或 TangKeke.deepseek-harness-vscode 需先卸载，避免与新的 TangKeke.tangkeke-deepseek-harness 重复启用。
+3. 从本项目 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 VSIX，通过“扩展：从 VSIX 安装”安装。旧的 harness-local 版本或 TangKeke.deepseek-harness-vscode 需先卸载，避免与新的 TangKeke.tangkeke-deepseek-harness 重复启用。
 4. 打开项目工作区，点击鲸鱼图标。环境引导中点击“选择 DSH 目录”或“选择 bin 文件”；文件选择器由 VS Code 根据当前连接决定路径来源。
 5. 路径校验失败会提示并重新打开选择器，取消即可停止。有效选择自动保存并尝试加载，无需点击重新加载按钮。Node.js 缺失需先安装 Node.js。
 
@@ -34,7 +34,7 @@
 
 ### 遇到问题
 
-请前往 [项目 Issues](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues) 提交问题，说明操作步骤、系统、VS Code/DSH 版本以及是否使用 Remote SSH。日志位于“输出 → DeepSeek Harness”；分享前删除令牌、API Key 和私人路径等敏感信息。扩展不会自动安装或升级 DSH，第三方 DSH 插件兼容性取决于对应版本。
+请前往 [项目 Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) 提交问题，说明操作步骤、系统、VS Code/DSH 版本以及是否使用 Remote SSH。日志位于“输出 → DeepSeek Harness”；分享前删除令牌、API Key 和私人路径等敏感信息。扩展不会自动安装或升级 DSH，第三方 DSH 插件兼容性取决于对应版本。
 
 本页提供中英双语，顶部导航跳转到对应段落；扩展详情 README 不会根据 VS Code 语言自动切换。启动引导和按钮会跟随显示语言，正文浅色黑字、深色白字，按钮保持白字蓝底。
 
@@ -46,7 +46,7 @@ Use DeepSeek Harness in your VS Code workspace with independent chat tabs, sessi
 
 1. Install desktop VS Code 1.95+ and Node.js 22.x starting at 22.19, or 24+. Add Node.js to PATH and confirm `node --version`. Restart VS Code after changing PATH.
 2. Prepare the [official DSH runtime](https://github.com/deepseek-ai/deepseek-harness), including dependencies and build outputs. For Remote SSH, prepare it on the server.
-3. Install the VSIX from [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases). Uninstall old harness-local or TangKeke.deepseek-harness-vscode installations first; the new extension ID is TangKeke.tangkeke-deepseek-harness.
+3. Install the VSIX from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases). Uninstall old harness-local or TangKeke.deepseek-harness-vscode installations first; the new extension ID is TangKeke.tangkeke-deepseek-harness.
 4. Open a workspace and click the whale. Choose **Select DSH folder** or **Select bin file**. VS Code chooses the filesystem for the current connection.
 5. Invalid paths display an error and reopen the picker; cancel to stop. Valid selections are saved and loading starts automatically. Install Node.js first if it is missing.
 
@@ -62,7 +62,7 @@ Search VS Code settings for `deepseekHarness`. The `binPath` setting takes prece
 
 Closing a chat page keeps backend tasks running. To stop the managed backend, search the command palette for **Shared Backend**. Restart it after changing the runtime or its plugins.
 
-Report problems at [GitHub Issues](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues), including reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Review Output → DeepSeek Harness for diagnostics and remove credentials and private information before sharing.
+Report problems at [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues), including reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Review Output → DeepSeek Harness for diagnostics and remove credentials and private information before sharing.
 
 This README contains both languages with navigation at the top; VS Code does not automatically switch the extension details README by display language. Setup UI text follows the display language. Light themes use black text, dark themes white text; button labels stay white.
 

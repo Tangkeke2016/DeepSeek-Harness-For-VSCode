@@ -14,7 +14,7 @@ For Remote SSH, install the extension on the remote host and prepare Node.js, DS
 
 ## Install and start
 
-1. Download `tangkeke-deepseek-harness-0.1.1.vsix` from [Releases](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/releases).
+1. Download `tangkeke-deepseek-harness-0.1.1.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
 2. Choose **Install from VSIX…** in the VS Code Extensions panel and reload when prompted.
 3. Open and trust a project workspace. Click the whale in the editor title bar, or search the Command Palette for `DeepSeek Harness` to open chat.
 4. If the DSH path is missing, choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
@@ -43,6 +43,6 @@ pnpm dsh plugin --profile web add <package-name>
 
 ## Support and development
 
-Report problems at [GitHub Issues](https://github.com/Tangkeke2016/deepseek-harness-for-vscode/issues), including reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Diagnostics appear under **Output → DeepSeek Harness**; remove API keys, tokens, and private information before sharing. Compatibility can vary across DSH and third-party plugin versions.
+Report problems at [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues), including reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Diagnostics appear under **Output → DeepSeek Harness**; remove API keys, tokens, and private information before sharing. Compatibility can vary across DSH and third-party plugin versions.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build and contribution steps. Licensed under [MIT](LICENSE); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party notices.
