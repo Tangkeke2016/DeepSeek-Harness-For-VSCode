@@ -18,7 +18,7 @@ import { ClientAssets } from './assets.ts';
 import { MessageDelivery } from './delivery.ts';
 
 type Surface = vscode.WebviewView | vscode.WebviewPanel;
-interface View { surface: Surface; epoch?: string; relay?: WebRelay; connection?: Transport; delivery?: MessageDelivery; timer?: ReturnType<typeof setTimeout>; loading?: Promise<void>; pendingNew?: boolean; disposed: boolean; cwd: string; mode: 'chat' | 'settings'; ready: boolean; fresh: boolean; generation: number; editorTab?: boolean; sessionId?: string; title?: string }
+interface View { loadFailed?: boolean; surface: Surface; epoch?: string; relay?: WebRelay; connection?: Transport; delivery?: MessageDelivery; timer?: ReturnType<typeof setTimeout>; loading?: Promise<void>; pendingNew?: boolean; disposed: boolean; cwd: string; mode: 'chat' | 'settings'; ready: boolean; fresh: boolean; generation: number; editorTab?: boolean; sessionId?: string; title?: string }
 let app: Application | undefined;
 
 /** @param context - VS Code extension lifetime and storage. */
@@ -161,6 +161,7 @@ class Application implements vscode.Disposable {
   }
 
   private async loadView(view: View): Promise<void> {
+    view.loadFailed = false;
     const generation = ++view.generation;
     const epoch = view.epoch = randomBytes(18).toString('base64');
     const active = (): boolean => !view.disposed && generation === view.generation;
@@ -236,7 +237,7 @@ class Application implements vscode.Disposable {
   }
 
   private failed(view: View, error: Error): void {
-    this.reset(view); this.output.appendLine(redact(error.message));
+    this.reset(view); view.loadFailed = true; this.output.appendLine(redact(error.message));
     if (!view.disposed) view.surface.webview.html = this.status(`${copy(vscode.env.language).failed}: ${redact(error.message)}`, true);
   }
 
@@ -255,22 +256,27 @@ class Application implements vscode.Disposable {
       try { findCli(directory ? input : '', view.cwd, directory ? '' : input); return input.trim() ? undefined : t.invalid; }
       catch { return t.invalid; }
     };
-    const selected = await vscode.window.showOpenDialog({
-      title: directory ? t.directoryPrompt : t.binPrompt, openLabel: directory ? t.directoryAction : t.binAction,
-      canSelectFiles: !directory, canSelectFolders: directory, canSelectMany: false,
-      ...(directory ? {} : { filters: { JavaScript: ['js'] } }),
-    });
-    const value = selected?.[0]?.fsPath;
-    if (value === undefined || view.disposed) return;
-    const error = validate(value); if (error) throw new Error(error);
-    if (directory) {
-      // Store the resolved entry first so an interrupted settings write still selects this runtime.
-      await settings.update('binPath', findCli(value.trim(), view.cwd), vscode.ConfigurationTarget.Global);
-      await settings.update('harnessPath', expandHome(value.trim()), vscode.ConfigurationTarget.Global);
-      await settings.update('binPath', undefined, vscode.ConfigurationTarget.Global);
-    } else await settings.update('binPath', expandHome(value.trim()), vscode.ConfigurationTarget.Global);
-    this.output.appendLine(t.saved);
-    this.reset(view); await this.load(view);
+    while (!view.disposed) {
+      const selected = await vscode.window.showOpenDialog({
+        title: directory ? t.directoryPrompt : t.binPrompt, openLabel: directory ? t.directoryAction : t.binAction,
+        canSelectFiles: !directory, canSelectFolders: directory, canSelectMany: false,
+        ...(directory ? {} : { filters: { JavaScript: ['js'] } }),
+      });
+      const value = selected?.[0]?.fsPath;
+      if (value === undefined || view.disposed) return;
+      const error = validate(value);
+      if (error) { await vscode.window.showErrorMessage(error); continue; }
+      if (directory) {
+        // Store the resolved entry first so an interrupted settings write still selects this runtime.
+        await settings.update('binPath', findCli(value.trim(), view.cwd), vscode.ConfigurationTarget.Global);
+        await settings.update('harnessPath', expandHome(value.trim()), vscode.ConfigurationTarget.Global);
+        await settings.update('binPath', undefined, vscode.ConfigurationTarget.Global);
+      } else await settings.update('binPath', expandHome(value.trim()), vscode.ConfigurationTarget.Global);
+      this.output.appendLine(t.saved);
+      this.reset(view); await this.load(view);
+      if (view.loadFailed) continue;
+      return;
+    }
   }
 
   private async receive(view: View, value: unknown): Promise<void> {
