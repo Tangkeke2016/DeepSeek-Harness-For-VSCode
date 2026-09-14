@@ -14,7 +14,7 @@
 
 ## 安装与启动
 
-1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.3.vsix`。
+1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.4.vsix`。
 2. 在 VS Code 扩展面板中选择“从 VSIX 安装…”，安装后按提示重新加载窗口。
 3. 打开并信任项目工作区，点击编辑器右上角鲸鱼按钮，或在命令面板搜索 `DeepSeek Harness` 打开聊天。
 4. 首次启动缺少 DSH 路径时，点击“选择 DSH 目录”或“选择 bin 文件”。有效选择会保存并自动尝试加载；无效选择会提示并重新打开选择器，取消即可停止。

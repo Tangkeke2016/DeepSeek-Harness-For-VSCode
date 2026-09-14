@@ -357,10 +357,11 @@ class Application implements vscode.Disposable {
     const local = relative(view.cwd, path);
     if (!local || local.startsWith('..') || isAbsolute(local)) return;
     const selection = editor.selection;
-    const context: EditorContext = { key: path, path, label: local };
+    const context: EditorContext = { key: path, path, label: local, unsaved: editor.document.isDirty };
     if (!selection.isEmpty) {
       context.startLine = selection.start.line + 1; context.endLine = selection.end.line + 1;
-      context.text = editor.document.getText(selection); context.label += `:${context.startLine}-${context.endLine}`;
+      context.startColumn = selection.start.character + 1; context.endColumn = selection.end.character + 1;
+      context.label += `:${context.startLine}-${context.endLine}`;
     }
     void view.surface.webview.postMessage({ kind: 'editor-context', context });
   }
