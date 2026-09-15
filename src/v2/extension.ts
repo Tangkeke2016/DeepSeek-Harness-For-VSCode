@@ -31,6 +31,7 @@ export async function deactivate(): Promise<void> { await app?.shutdown(); app =
 
 class Application implements vscode.Disposable {
   private backend?: SharedBackend;
+  private recovering = false;
   private launch?: Promise<string>;
   private sidebar?: View;
   private settings?: View;
@@ -291,6 +292,7 @@ class Application implements vscode.Disposable {
       case 'setup-directory': await this.configureRuntime(view, true); break;
       case 'retry': this.reset(view); await this.load(view); break;
       case 'client-failure': this.failed(view, new Error(String(message.error))); break;
+      case 'session-create-failed': await this.sessionCreateFailed(String(message.error)); break;
       case 'client-diagnostic': this.output.appendLine(`client: ${redact(String(message.error))}`); break;
       case 'settings': this.openSettings(); break;
       case 'open-settings-document': {
@@ -364,6 +366,22 @@ class Application implements vscode.Disposable {
       context.label += `:${context.startLine}-${context.endLine}`;
     }
     void view.surface.webview.postMessage({ kind: 'editor-context', context });
+  }
+
+  /** A preset failure leaves the view usable; only an explicit action restarts the owned shared backend. */
+  private async sessionCreateFailed(error: string): Promise<void> {
+    if (!error.includes('agent-preset/invalid') || !error.includes('cannot be resolved') || this.attachedUrl) { this.report(error); return; }
+    if (this.recovering) return;
+    this.recovering = true;
+    const launch = this.launch;
+    try {
+      const text = copy(vscode.env.language);
+      this.output.appendLine(redact(error));
+      const action = await vscode.window.showWarningMessage(`${redact(error)}\n${text.restartWarning}`, text.restartBackend);
+      if (action !== text.restartBackend || this.launch !== launch || this.attachedUrl || !this.views.size) return;
+      await this.shutdown(true);
+      await Promise.all([...this.views].filter(view => !view.disposed).map(view => this.load(view)));
+    } finally { this.recovering = false; }
   }
 
   private report(error: unknown): void { const message = redact(String(error)); this.output.appendLine(message); void vscode.window.showErrorMessage(message); }

@@ -14,11 +14,13 @@
 
 ## 安装与启动
 
-1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.4.vsix`。
+1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.5.vsix`。
 2. 在 VS Code 扩展面板中选择“从 VSIX 安装…”，安装后按提示重新加载窗口。
 3. 打开并信任项目工作区，点击编辑器右上角鲸鱼按钮，或在命令面板搜索 `DeepSeek Harness` 打开聊天。
 4. 首次启动缺少 DSH 路径时，点击“选择 DSH 目录”或“选择 bin 文件”。有效选择会保存并自动尝试加载；无效选择会提示并重新打开选择器，取消即可停止。
 5. 在官方设置页面配置模型及凭据，开始会话。
+
+历史会话按最新活动时间排序，右侧显示秒、分钟、小时或月/日。编辑器上下文及阅读提示在待处理插话和正式聊天记录中均隐藏。
 
 工作目录使用当前 VS Code 工作区，无需另行选择。插件自动启动或复用共享后台，**无需手动运行 `pnpm dsh web`**。
 

@@ -16,7 +16,7 @@ body[data-dsh-vscode='chat']:not([data-vscode-ready]) #root { visibility: hidden
 #vscode-actions button { display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: inherit; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
 #vscode-actions button:hover { background: var(--vscode-toolbar-hoverBackground, #eee); }
 #vscode-history { position: absolute; right: 12px; top: 40px; width: min(360px, calc(100vw - 24px)); max-height: 65vh; overflow: auto; padding: 6px; border: 1px solid var(--vscode-widget-border, #ddd); border-radius: 10px; background: var(--vscode-editor-background, #fff); box-shadow: 0 6px 24px #0002; }
-#vscode-history button { width: 100%; display: block; padding: 9px; background: transparent; border: 0; border-radius: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; cursor: pointer; }
+#vscode-history button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 9px; background: transparent; border: 0; border-radius: 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; cursor: pointer; }
 #vscode-history button:hover, #vscode-history button[aria-current=true] { background: var(--vscode-list-hoverBackground, #eee); }
 body[data-dsh-vscode] [data-slot='root'] > div { grid-template-columns: 0 minmax(0, 1fr) 0 !important; }
 body[data-dsh-vscode] [data-slot='root'] > div > div:first-of-type { width: 0; overflow: hidden; visibility: hidden; }
@@ -52,3 +52,6 @@ body[data-dsh-vscode='chat'] [data-sidebar-right-panel='fullscreen'] { top: var(
    restore the official geometry at every width: a zero-height sticky slot whose
    frame floats in the transcript's right gutter, clear of the centred column. */
 body[data-dsh-vscode] [data-conversation-scroll] [class*='_slot']:has(> nav [class*='_marks']) { display: block; }
+
+#vscode-history .vscode-history-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+#vscode-history time { flex: none; margin-left: auto; color: var(--vscode-descriptionForeground); font-size: 11px; font-variant-numeric: tabular-nums; }

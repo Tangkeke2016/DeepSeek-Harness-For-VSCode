@@ -39,6 +39,13 @@ export function presentation(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(presentation);
   if (typeof value !== 'object' || value === null) return value;
   const object = value as Record<string, unknown>;
+  if (object.type === 'queue' && Array.isArray(object.items)) return { ...object, items: queuePresentation(object.items) };
+  if (object.type === 'baseline' && typeof object.value === 'object' && object.value !== null) {
+    const baseline = object.value as Record<string, unknown>;
+    if (typeof baseline.queues === 'object' && baseline.queues !== null && !Array.isArray(baseline.queues)) {
+      return { ...object, value: { ...baseline, queues: Object.fromEntries(Object.entries(baseline.queues).map(([id, items]) => [id, Array.isArray(items) ? queuePresentation(items) : items])) } };
+    }
+  }
   if (object.type === 'user/message' && typeof object.data === 'object' && object.data !== null) {
     const data = object.data as Record<string, unknown>;
     if (Array.isArray(data.content)) return { ...object, data: { ...data, content: data.content.filter(block => !isContextText((block as { text?: unknown }).text)) } };
@@ -46,6 +53,18 @@ export function presentation(value: unknown): unknown {
   return Object.fromEntries(Object.entries(object).map(([key, field]) => [key,
     key === 'title' && typeof field === 'string' && field.includes('<dsh-vscode')
       ? field.slice(0, field.indexOf('<dsh-vscode')).trimEnd() : presentation(field)]));
+}
+
+/** Pending queue messages have not yet become user/message events. Their receipt and editing metadata stay intact. */
+function queuePresentation(items: unknown[]): unknown[] {
+  return items.map(item => {
+    if (typeof item !== 'object' || item === null) return item;
+    const entry = item as Record<string, unknown>;
+    if (typeof entry.message !== 'object' || entry.message === null) return item;
+    const message = entry.message as Record<string, unknown>;
+    if (!Array.isArray(message.content)) return item;
+    return { ...entry, message: { ...message, content: message.content.filter(block => !isContextText((block as { text?: unknown })?.text)) } };
+  });
 }
 
 /** Editor-tab labels are bounded: VS Code sizes a tab from its label, so a label wider than the editor group scrolls the title area and carries the tab's close control out of view. */

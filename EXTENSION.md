@@ -14,6 +14,8 @@
 4. 首次配置时选择“选择 DSH 目录”或“选择 bin 文件”。文件选择器使用当前连接的文件系统；有效路径自动保存并加载，无效路径提示后重新选择，取消即可停止。
 5. 在官方设置页面配置模型及凭据，开始会话。扩展自动启动或复用后台，无需手动运行 `pnpm dsh web`。
 
+历史菜单按最新活动时间排序，右侧显示秒、分钟、小时或月/日；上下文提示在待处理插话和正式聊天记录中均隐藏。
+
 ### DSH 路径
 
 | 安装方式 | bin.js 常见位置 |
@@ -30,6 +32,8 @@
 
 ### 遇到问题
 
+新建会话失败时仍可访问历史。若更新 DSH 后提示预设依赖无法解析，可点击“重启后台并重试”；该操作会停止共享后台的所有任务。
+
 请前往 [项目 Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) 提交复现步骤、系统、VS Code/DSH 版本及 Remote SSH 使用情况。日志位于“输出 → DeepSeek Harness”，分享前移除凭据和私人信息。扩展不会自动安装或升级 DSH，第三方插件兼容性取决于对应版本。
 
 ## English guide
@@ -43,6 +47,8 @@ Use the official DeepSeek Harness Web interface in the current VS Code workspace
 3. Open and trust a project workspace. Click the whale in the editor title bar to open an independent chat tab.
 4. During setup, choose **Select DSH folder** or **Select bin file**. The picker uses the current connection's filesystem. Valid paths are saved and loaded automatically; invalid paths show an error and reopen the picker. Cancel to stop.
 5. Configure models and credentials in official settings and start chatting. The extension starts or reuses the backend automatically; no manual `pnpm dsh web` command is needed.
+
+History is sorted by latest activity, with seconds, minutes, hours, or month/day on the right. Context hints are hidden in pending interjections and the transcript.
 
 ### DSH paths
 
@@ -59,6 +65,8 @@ Keep the complete DSH installation and Web resources; copying `bin.js` alone is 
 **Once started, the backend does not automatically stop when chat closes, VS Code exits, or SSH disconnects.** To stop it, search the Command Palette for `Shared Backend` and run **Stop Current User's Shared Backend**. This command does not stop manually attached external backends.
 
 ### Support
+
+History stays available if creating a session fails. If preset dependencies cannot be resolved after updating DSH, choose **Restart backend and retry**; this stops all tasks on the shared backend.
 
 Report problems at [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) with reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Logs appear under **Output → DeepSeek Harness**; remove credentials and private information before sharing. The extension does not install or upgrade DSH automatically; third-party plugin compatibility depends on the versions involved.
 
