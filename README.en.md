@@ -14,7 +14,7 @@ For Remote SSH, install the extension on the remote host and prepare Node.js, DS
 
 ## Install and start
 
-1. Download `tangkeke-deepseek-harness-0.1.5.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
+1. Download `tangkeke-deepseek-harness-0.1.6.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
 2. Choose **Install from VSIX…** in the VS Code Extensions panel and reload when prompted.
 3. Open and trust a project workspace. Click the whale in the editor title bar, or search the Command Palette for `DeepSeek Harness` to open chat.
 4. If the DSH path is missing, choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
@@ -23,6 +23,10 @@ For Remote SSH, install the extension on the remote host and prepare Node.js, DS
 History is sorted by latest activity, with seconds, minutes, hours, or month/day shown on the right. Editor context and reading hints are hidden in both pending interjections and the transcript.
 
 The working directory is the current VS Code workspace. The extension starts or reuses a shared backend automatically; **no manual `pnpm dsh web` command is needed**.
+
+New sessions display “New session” while being created, and the loading page follows VS Code colors. Briefly queued messages do not immediately occupy space above the input; queues that persist for the default 250 milliseconds remain visible, without delaying submission. Adjust `deepseekHarness.queueRevealDelayMilliseconds` in VS Code settings, or set it to 0 to show queues immediately. Reopen the view after changing it.
+
+With “Follow VS Code” selected, the conversation background uses the current VS Code editor background color and updates as the theme changes. Explicit light and dark selections retain the official palettes.
 
 ## DSH paths
 

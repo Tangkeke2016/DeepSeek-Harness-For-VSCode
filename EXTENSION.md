@@ -14,15 +14,11 @@
 4. 首次配置时选择“选择 DSH 目录”或“选择 bin 文件”。文件选择器使用当前连接的文件系统；有效路径自动保存并加载，无效路径提示后重新选择，取消即可停止。
 5. 在官方设置页面配置模型及凭据，开始会话。扩展自动启动或复用后台，无需手动运行 `pnpm dsh web`。
 
-历史菜单按最新活动时间排序，右侧显示秒、分钟、小时或月/日；上下文提示在待处理插话和正式聊天记录中均隐藏。
-
 ### DSH 路径
 
-| 安装方式 | bin.js 常见位置 |
-| --- | --- |
-| 已构建的源码项目 | `<DSH 项目>/apps/cli/lib/bin.js` |
-| 已安装的 DSH 包 | `<包目录>/lib/bin.js` |
-| npm 全局安装 | `npm root -g` 输出目录下的 `@deepseek-ai/dsh/lib/bin.js` |
+- 已构建的源码项目：`<DSH 项目>/apps/cli/lib/bin.js`
+- 已安装的 DSH 包：`<包目录>/lib/bin.js`
+- npm 全局安装：`<npm 全局目录>/@deepseek-ai/dsh/lib/bin.js`（运行 `npm root -g` 查看全局目录）
 
 需要保留完整 DSH 安装及 Web 资源，不能只复制 `bin.js`。在 VS Code 设置中搜索 `deepseekHarness` 可查看配置：`binPath` 优先于 `harnessPath`，通过引导选择目录会清除旧的 `binPath`；可选的 `home` 指定数据目录，留空使用 `DSH_HOME` 或 `~/.dsh`。
 
@@ -48,15 +44,11 @@ Use the official DeepSeek Harness Web interface in the current VS Code workspace
 4. During setup, choose **Select DSH folder** or **Select bin file**. The picker uses the current connection's filesystem. Valid paths are saved and loaded automatically; invalid paths show an error and reopen the picker. Cancel to stop.
 5. Configure models and credentials in official settings and start chatting. The extension starts or reuses the backend automatically; no manual `pnpm dsh web` command is needed.
 
-History is sorted by latest activity, with seconds, minutes, hours, or month/day on the right. Context hints are hidden in pending interjections and the transcript.
-
 ### DSH paths
 
-| Installation | Typical bin.js location |
-| --- | --- |
-| Built source checkout | `<DSH project>/apps/cli/lib/bin.js` |
-| Installed DSH package | `<package directory>/lib/bin.js` |
-| npm global installation | `@deepseek-ai/dsh/lib/bin.js` beneath the directory printed by `npm root -g` |
+- Built source checkout: `<DSH project>/apps/cli/lib/bin.js`
+- Installed DSH package: `<package directory>/lib/bin.js`
+- npm global installation: `<npm global directory>/@deepseek-ai/dsh/lib/bin.js` (run `npm root -g` to find the global directory)
 
 Keep the complete DSH installation and Web resources; copying `bin.js` alone is insufficient. Search VS Code settings for `deepseekHarness`: `binPath` takes precedence over `harnessPath`, and choosing a folder through setup clears the previous `binPath`. The optional `home` selects the data directory; empty uses `DSH_HOME` or `~/.dsh`.
 

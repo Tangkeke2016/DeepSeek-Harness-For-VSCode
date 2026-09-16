@@ -221,6 +221,7 @@ class Application implements vscode.Disposable {
         adapterUri: uri(join(this.context.extensionPath, 'dist/v2-adapter.js')),
         styleUri: uri(join(this.context.extensionPath, 'webview/v2.css')), cspSource: webview.cspSource,
       }, { cwd, mode: view.mode, language: vscode.env.language, fresh: view.fresh, editorTab: view.editorTab,
+        queueRevealDelayMs: vscode.workspace.getConfiguration('deepseekHarness').get('queueRevealDelayMilliseconds', 250),
         sessionId: view.editorTab ? view.sessionId : this.context.workspaceState.get<string>(`v2.session:${cwd}`), nonce: epoch, maxTransferBytes: maxBytes, requestTimeoutMs: timeout });
       if (active()) { phase(`HTML published (${Buffer.byteLength(html)} bytes)`); webview.html = html; } else await relay.dispose();
     } catch (error) {

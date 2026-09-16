@@ -3,6 +3,7 @@ import type { ViewConfig } from './html.ts';
 import type { EditorContext } from './messages.ts';
 import { copy } from './locale.ts';
 import { historyTime, recentSessions } from './history.ts';
+import { settleQueueDisplay } from './queue-display.ts';
 import { deleteSession, type DeletableSession } from './delete-session.ts';
 
 interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
@@ -12,6 +13,8 @@ interface Workspace { workspaceId: string; path: string; sessionIds: string[] }
 interface WorkspaceState { phase: string; items: Workspace[]; archivedSessionIds: string[] }
 interface Context {
   effect(start: () => (() => void), label?: string): void;
+  theme: { getTheme(): { preference: string } };
+  on(event: 'theme/change', listener: (snapshot: { preference: string }) => void): () => void;
   sessions: { list: Observable<SessionState>; create(input: { workspaceId: string }): Promise<string>; binding(id: string): { session: DeletableSession } | undefined };
   workspaces: { list: Observable<WorkspaceState>; create(input: { path: string }): Promise<Workspace> };
   uiWorkspace: { openSession(id: string): void; openWorkspace(id: string): Promise<void>; startSession(id: string): void; archiveSession(id: string): Promise<void> };
@@ -31,13 +34,13 @@ const id = '@deepseek-ai/dsh-vscode-client';
 const hmr = '@deepseek-ai/dsh-client-hmr';
 global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.id !== hmr);
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.5', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.5', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.6', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.6', entries: [id] });
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };
   const primitives = require('@deepseek-ai/dsh-client-ui-primitives') as Record<string, unknown>;
-  return { inject: ['sessions', 'workspaces', 'uiWorkspace', 'locale'], apply(ctx: Context): void {
+  return { inject: ['sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme'], apply(ctx: Context): void {
     ctx.effect(() => {
       let text = copy(ctx.locale.getSnapshot().active);
       const lifetime = new AbortController();
@@ -46,6 +49,12 @@ global.__ModuleLoader__.load({ id, factory: require => {
       const actions = document.createElement('div'); actions.id = 'vscode-actions';
       header.append(title, actions); document.body.append(header);
       document.body.dataset.dshVscode = config.mode;
+      const syncTheme = (snapshot: { preference: string }): void => {
+        document.body.toggleAttribute('data-vscode-theme-background', snapshot.preference === 'system');
+      };
+      const stopTheme = ctx.on('theme/change', syncTheme);
+      syncTheme(ctx.theme.getTheme());
+      const stopQueueDisplay = settleQueueDisplay(config.queueRevealDelayMs ?? 250);
       const menu = document.createElement('div'); menu.id = 'vscode-history'; menu.hidden = true; menu.setAttribute('role', 'menu'); header.append(menu);
       const contextMenu = document.createElement('div'); contextMenu.id = 'vscode-history-context'; contextMenu.hidden = true; contextMenu.setAttribute('role', 'menu'); header.append(contextMenu);
       const chips = document.createElement('div'); chips.id = 'vscode-contexts';
@@ -55,6 +64,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
       let current: string | undefined;
       let announced = '';
       let initialized = false;
+      let selecting = config.mode === 'chat';
       let settingsOpened = false;
       let settingsSeen = false;
       const contexts = new Map<string, Map<string, EditorContext>>();
@@ -82,11 +92,14 @@ global.__ModuleLoader__.load({ id, factory: require => {
       let creating = false;
       const fresh = (): void => {
         menu.hidden = true;
-        if (!workspace || creating || (current && ctx.sessions.list.getSnapshot().byId[current]?.blank)) return;
-        creating = true;
+        if (!workspace || selecting || creating || (current && ctx.sessions.list.getSnapshot().byId[current]?.blank)) return;
+        creating = true; selecting = true; update();
         void ctx.sessions.create({ workspaceId: workspace.workspaceId }).then(sessionId => {
           if (!lifetime.signal.aborted) ctx.uiWorkspace.openSession(sessionId);
-        }).catch(error => { if (!lifetime.signal.aborted) bridge.post({ kind: 'session-create-failed', error: String(error) }); }).finally(() => { creating = false; });
+        }).catch(error => { if (!lifetime.signal.aborted) bridge.post({ kind: 'session-create-failed', error: String(error) }); }).finally(() => {
+          creating = false;
+          if (!lifetime.signal.aborted) { selecting = false; update(); }
+        });
       };
       const button = (key: 'history' | 'fresh' | 'settings', icon: string, action: () => void): void => {
         const seat = document.createElement('span'); actions.append(seat);
@@ -121,14 +134,15 @@ global.__ModuleLoader__.load({ id, factory: require => {
       button('settings', 'VscodeSettings', () => bridge.post({ kind: 'settings' }));
       const update = (): void => {
         const state = ctx.sessions.list.getSnapshot();
-        const changed = current !== state.current; current = state.current;
+        const selected = selecting ? undefined : state.current;
+        const changed = current !== selected; current = selected;
         const summary = current ? state.byId[current] : undefined;
         title.textContent = summary && !summary.blank ? summary.displayTitle : text.fresh;
         title.title = title.textContent;
         if (changed) renderChips();
         const announcement = { kind: 'session', sessionId: current, title: title.textContent, blank: summary?.blank ?? true };
         const serialized = JSON.stringify(announcement);
-        if ((!config.editorTab || document.body.dataset.vscodeReady === 'true') && serialized !== announced) { announced = serialized; bridge.post(announcement); }
+        if (!selecting && (!config.editorTab || document.body.dataset.vscodeReady === 'true') && serialized !== announced) { announced = serialized; bridge.post(announcement); }
         const workspaces = ctx.workspaces.list.getSnapshot();
         workspace = workspaces.items.find(item => item.workspaceId === workspace?.workspaceId) ?? workspace;
         menu.replaceChildren();
@@ -178,7 +192,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
                 bridge.post({ kind: 'session-create-failed', error: String(error) });
               }
             }
-            if (!lifetime.signal.aborted) { document.body.dataset.vscodeReady = 'true'; update(); bridge.post({ kind: 'client-ready' }); }
+            if (!lifetime.signal.aborted) { selecting = false; document.body.dataset.vscodeReady = 'true'; update(); bridge.post({ kind: 'client-ready' }); }
           })().catch(error => bridge.post({ kind: 'client-failure', error: String(error) }));
         }
       };
@@ -216,6 +230,8 @@ global.__ModuleLoader__.load({ id, factory: require => {
       const clock = setInterval(refreshTimes, 1000);
       return () => {
         clearInterval(clock);
+        stopQueueDisplay();
+        stopTheme(); document.body.removeAttribute('data-vscode-theme-background');
         lifetime.abort(); unsubSessions(); unsubWorkspaces(); unsubLocale(); observer.disconnect();
         document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape);
         for (const root of roots) root.unmount(); header.remove(); chips.remove();

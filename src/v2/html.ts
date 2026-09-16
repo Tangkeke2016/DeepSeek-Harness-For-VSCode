@@ -29,6 +29,7 @@ export interface ViewConfig {
   nonce: string;
   maxTransferBytes: number;
   requestTimeoutMs?: number;
+  queueRevealDelayMs?: number;
 }
 
 /** @param source - Authenticated official index. @param assets - Bound resource loader. @param config - View-specific state. @returns Executable official Webview HTML. */

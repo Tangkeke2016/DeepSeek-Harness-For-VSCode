@@ -2,7 +2,7 @@
   "name": "tangkeke-deepseek-harness",
   "displayName": "DeepSeek Harness – Everything is a Plugin",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "TangKeke",
   "private": true,
   "type": "module",
@@ -159,6 +159,13 @@
           "default": "",
           "scope": "machine",
           "description": "%binPath%"
+        },
+        "deepseekHarness.queueRevealDelayMilliseconds": {
+          "type": "number",
+          "default": 250,
+          "minimum": 0,
+          "maximum": 2000,
+          "description": "%queueRevealDelay%"
         }
       }
     }

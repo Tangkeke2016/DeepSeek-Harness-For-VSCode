@@ -12,5 +12,6 @@
   "home": "Harness data directory. Empty uses the official default. Explicitly stop the shared backend before applying changes.",
   "timeout": "Maximum seconds to wait for the backend startup URL.",
   "settingsPath": "Optional absolute settings document path for a custom or attached backend.",
-  "binPath": "Absolute path to the official DSH bin.js. Takes precedence over harnessPath. Set on the machine running the extension."
+  "binPath": "Absolute path to the official DSH bin.js. Takes precedence over harnessPath. Set on the machine running the extension.",
+  "queueRevealDelay": "Delay in milliseconds before showing a newly opened message queue. Briefly queued messages do not flash above the input. Zero shows the queue immediately. Reopen the view after changing."
 }

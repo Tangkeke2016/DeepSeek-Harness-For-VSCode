@@ -1,4 +1,16 @@
 /* Layout belongs to the VS Code pane; all conversation and control styling stays official. */
+/* Boot CSS also runs before the client theme service is available. */
+body[data-vscode-theme-background] { --dsw-alias-bg-base: var(--vscode-editor-background) !important; }
+body:not([data-dsh-vscode]), body:has([data-dsh-boot]) { background: var(--vscode-editor-background, #181818) !important; }
+[data-dsh-boot] {
+  background: var(--vscode-editor-background, #181818) !important;
+  --dsw-alias-label-primary: var(--vscode-editor-foreground, #ddd) !important;
+  --dsw-alias-label-secondary: var(--vscode-descriptionForeground, #aaa) !important;
+  --dsw-alias-label-tertiary: var(--vscode-descriptionForeground, #aaa) !important;
+  --dsw-alias-border-l2: color-mix(in srgb, var(--vscode-editor-foreground, #ddd), transparent 85%) !important;
+  --dsw-alias-brand-primary: var(--vscode-editor-foreground, #ddd) !important;
+}
+body[data-vscode-queue-settling] [data-queue-dock]:not([data-vscode-queue-ready]) { display: none !important; }
 /* The extension bar is one reserved band: everything the official UI anchors to
    the Webview's top edge starts below it. */
 body[data-dsh-vscode] { --vscode-dsh-header-height: 42px; margin: 0; padding: 0; overflow: hidden; display: flow-root; }
@@ -7,7 +19,7 @@ body[data-dsh-vscode] [data-conversation-scroll] { scrollbar-gutter: stable both
 body[data-dsh-vscode] [data-conversation-scroll]:has([data-conversation-composer-overlay]) > [data-composer-seat] { inset-inline: var(--dsh-scrollbar-width); }
 body[data-dsh-vscode='chat'] #root { height: calc(100dvh - var(--vscode-dsh-header-height)); margin-top: var(--vscode-dsh-header-height); }
 body[data-dsh-vscode='chat']:not([data-vscode-ready]) #root { visibility: hidden; }
-#vscode-header { position: fixed; inset: 0 0 auto; height: var(--vscode-dsh-header-height); display: flex; align-items: center; gap: 8px; padding: 0 12px; z-index: 100; background: var(--vscode-editor-background, #fff); color: var(--vscode-foreground, #222); font-size: 13px; }
+#vscode-header { position: fixed; inset: 0 0 auto; height: var(--vscode-dsh-header-height); display: flex; align-items: center; gap: 8px; padding: 0 12px; z-index: 100; background: var(--dsw-alias-bg-base, var(--vscode-editor-background, #fff)); color: var(--dsw-alias-label-primary, var(--vscode-foreground, #222)); font-size: 13px; }
 #vscode-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 #vscode-actions { display: flex; flex: 0 0 auto; gap: 4px; }
 #vscode-header { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100vw; }
