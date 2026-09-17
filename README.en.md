@@ -20,17 +20,7 @@ For Remote SSH, install the extension on the remote host and prepare Node.js and
 4. If the DSH path is missing, choose **Install official DSH** to run `npx @deepseek-ai/dsh web` and save its installed path automatically, or choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
 5. Configure models and credentials in the official settings page and start a conversation.
 
-History is sorted by latest activity, with seconds, minutes, hours, or month/day shown on the right. Editor context and reading hints are hidden in both pending interjections and the transcript.
-
 The working directory is the current VS Code workspace. The extension starts or reuses a shared backend automatically; **no manual `pnpm dsh web` command is needed**.
-
-New sessions display “New session” while being created, and the loading page follows VS Code colors. Briefly queued messages do not immediately occupy space above the input; queues that persist for the default 250 milliseconds remain visible, without delaying submission. Adjust `deepseekHarness.queueRevealDelayMilliseconds` in VS Code settings, or set it to 0 to show queues immediately. Reopen the view after changing it.
-
-With “Follow VS Code” selected, the conversation and settings backgrounds use the current VS Code editor background color and update as the theme changes. Explicit light and dark selections retain the official palettes.
-
-When a hidden tab or unfocused window returns, failed connections automatically reload the original session without restarting the backend or resending messages. A failed reconnect shows an error instead of retrying indefinitely.
-
-One-click installation follows the version selected by the official npx command. Keep its saved installation directory. Installation progress supports cancellation; `deepseekHarness.installTimeoutSeconds` sets the deadline (default: 600 seconds).
 
 ## DSH paths
 
