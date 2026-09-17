@@ -7,7 +7,8 @@ export class MessageDelivery {
   private bytes = 0;
   private active = false;
   private disposed = false;
-  private acknowledgement?: { id: string; finish(error?: Error): void };
+  private paused = false;
+  private acknowledgement?: { id: string; finish(error?: Error): void; watch(visible: boolean): void };
   /** @param post - Native Webview delivery result. @param failed - Reports undeliverable data without replaying RPCs. @param limit - Maximum queued UTF-16 bytes. @param timeout - Maximum acknowledgement wait in milliseconds. */
   constructor(private readonly post: (packet: unknown) => PromiseLike<boolean>, private readonly failed: (error: Error) => void, private readonly limit: number, private readonly timeout: number) {}
   /** @param value - One ordered relay packet, including stream termination. */
@@ -16,7 +17,13 @@ export class MessageDelivery {
     const text = JSON.stringify(value);
     if (this.bytes + text.length * 2 > this.limit) { this.fail(new Error('Webview delivery buffer exceeded')); return; }
     this.bytes += text.length * 2; this.queue.push({ id: randomUUID(), text });
-    if (!this.active) void this.flush();
+    if (!this.active && !this.paused) void this.flush();
+  }
+  /** @param visible - Hidden Webviews may suspend JavaScript and cannot acknowledge delivery. */
+  setVisible(visible: boolean): void {
+    this.paused = !visible;
+    this.acknowledgement?.watch(visible);
+    if (visible && !this.active && this.queue.length && !this.disposed) void this.flush();
   }
   /** @param id - Packet identity acknowledged by this view. @param error - Optional reassembly failure. */
   acknowledge(id: string, error?: string): void { if (this.acknowledgement?.id === id) this.acknowledgement.finish(error ? new Error(error) : undefined); }
@@ -26,15 +33,22 @@ export class MessageDelivery {
   private async flush(): Promise<void> {
     this.active = true;
     try {
-      while (!this.disposed && this.queue.length) {
+      while (!this.disposed && !this.paused && this.queue.length) {
         const message = this.queue[0]!;
         let resolveCompletion!: () => void;
         let rejectCompletion!: (error: Error) => void;
         const completion = new Promise<void>((resolve, reject) => { resolveCompletion = resolve; rejectCompletion = reject; });
         // Mark rejection handled while native postMessage calls are still pending.
         void completion.catch(() => {});
-        const timer = setTimeout(() => this.acknowledgement?.finish(new Error('Webview did not acknowledge delivery')), this.timeout);
-        this.acknowledgement = { id: message.id, finish: error => { clearTimeout(timer); error ? rejectCompletion(error) : resolveCompletion(); } };
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let settled = false;
+        const finish = (error?: Error): void => { settled = true; clearTimeout(timer); error ? rejectCompletion(error) : resolveCompletion(); };
+        const watch = (visible: boolean): void => {
+          clearTimeout(timer);
+          if (visible && !settled) timer = setTimeout(() => finish(new Error('Webview did not acknowledge delivery')), this.timeout);
+        };
+        this.acknowledgement = { id: message.id, finish, watch };
+        watch(!this.paused);
         try {
           const size = 64 * 1024;
           const total = Math.ceil(message.text.length / size);

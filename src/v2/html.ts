@@ -24,6 +24,7 @@ export interface ViewConfig {
   language: string;
   mode: 'chat' | 'settings';
   sessionId?: string;
+  sessionTitle?: string;
   fresh: boolean;
   editorTab?: boolean;
   nonce: string;

@@ -2,7 +2,7 @@
   "name": "tangkeke-deepseek-harness",
   "displayName": "DeepSeek Harness – Everything is a Plugin",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "TangKeke",
   "private": true,
   "type": "module",
@@ -166,6 +166,13 @@
           "minimum": 0,
           "maximum": 2000,
           "description": "%queueRevealDelay%"
+        },
+        "deepseekHarness.installTimeoutSeconds": {
+          "type": "number",
+          "default": 600,
+          "minimum": 30,
+          "maximum": 3600,
+          "description": "%installTimeout%"
         }
       }
     }
@@ -197,5 +204,9 @@
   "homepage": "https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode",
   "bugs": {
     "url": "https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues"
-  }
+  },
+  "activationEvents": [
+    "onWebviewPanel:deepseekHarness.editor",
+    "onWebviewPanel:deepseekHarness.settings"
+  ]
 }

@@ -16,9 +16,10 @@ import { copy } from './locale.ts';
 import { sessionLabel, tabLabel, type EditorContext } from './messages.ts';
 import { ClientAssets } from './assets.ts';
 import { MessageDelivery } from './delivery.ts';
+import { findNpx, installHarness } from './install.ts';
 
 type Surface = vscode.WebviewView | vscode.WebviewPanel;
-interface View { loadFailed?: boolean; surface: Surface; epoch?: string; relay?: WebRelay; connection?: Transport; delivery?: MessageDelivery; timer?: ReturnType<typeof setTimeout>; loading?: Promise<void>; pendingNew?: boolean; disposed: boolean; cwd: string; mode: 'chat' | 'settings'; ready: boolean; fresh: boolean; generation: number; editorTab?: boolean; sessionId?: string; title?: string }
+interface View { visible: boolean; reconnectPending?: boolean; reconnectAvailable?: boolean; loadFailed?: boolean; surface: Surface; epoch?: string; relay?: WebRelay; connection?: Transport; delivery?: MessageDelivery; timer?: ReturnType<typeof setTimeout>; loading?: Promise<void>; pendingNew?: boolean; disposed: boolean; cwd: string; mode: 'chat' | 'settings'; ready: boolean; fresh: boolean; generation: number; editorTab?: boolean; sessionId?: string; title?: string }
 let app: Application | undefined;
 
 /** @param context - VS Code extension lifetime and storage. */
@@ -44,9 +45,24 @@ class Application implements vscode.Disposable {
   private assets?: ClientAssets;
   private settingsDocument?: string;
   private attachedUrl?: string;
+  private installation?: { controller: AbortController; done: Promise<void> };
+  private windowFocused = vscode.window.state.focused;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.subscriptions.push(this.output,
+      ...(['deepseekHarness.editor', 'deepseekHarness.settings'] as const).map(kind => vscode.window.registerWebviewPanelSerializer(kind, {
+        deserializeWebviewPanel: async (panel, state: unknown) => {
+          const saved = state !== null && typeof state === 'object' && !Array.isArray(state) ? record(state) : {};
+          panel.webview.options = { enableScripts: true };
+          if (kind === 'deepseekHarness.settings') this.settings = this.attach(panel, 'settings', false);
+          else {
+            const cwd = typeof saved.cwd === 'string' && isAbsolute(saved.cwd) ? saved.cwd : this.workspace().uri.fsPath;
+            const sessionId = typeof saved.sessionId === 'string' && saved.sessionId ? saved.sessionId : undefined;
+            panel.iconPath = { light: vscode.Uri.file(join(this.context.extensionPath, 'media/whale-light.svg')), dark: vscode.Uri.file(join(this.context.extensionPath, 'media/whale-dark.svg')) };
+            this.attach(panel, 'chat', !sessionId, cwd, sessionId, typeof saved.title === 'string' ? saved.title : undefined);
+          }
+        },
+      })),
       vscode.window.registerWebviewViewProvider('deepseekHarness.chat', { resolveWebviewView: view => {
         this.sidebar = this.attach(view, 'chat', this.pendingFresh); this.pendingFresh = false;
       } }, { webviewOptions: { retainContextWhenHidden: true } }),
@@ -68,6 +84,7 @@ class Application implements vscode.Disposable {
       }),
       vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { this.lastEditor = editor; this.editorContext(editor); } }),
       vscode.window.onDidChangeTextEditorSelection(event => { this.lastEditor = event.textEditor; this.editorContext(event.textEditor); }),
+      vscode.window.onDidChangeWindowState(state => { this.windowFocused = state.focused; for (const view of this.views) this.visibilityChanged(view); }),
       vscode.workspace.onDidChangeWorkspaceFolders(() => { if (this.sidebar) void this.load(this.sidebar); }),
       vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('workbench.editor.tabSizing')) for (const view of this.views) this.applyTitle(view); }),
     );
@@ -122,20 +139,50 @@ class Application implements vscode.Disposable {
     (view.surface as vscode.WebviewPanel).title = title === undefined ? 'DeepSeek Harness' : sizing === 'fit' ? tabLabel(title) : sessionLabel(title);
   }
 
-  private attach(surface: Surface, mode: View['mode'], fresh: boolean, editorCwd?: string): View {
-    const view: View = { surface, mode, fresh, disposed: false, cwd: editorCwd ?? '', ready: false, generation: 0, editorTab: editorCwd !== undefined };
+  private attach(surface: Surface, mode: View['mode'], fresh: boolean, editorCwd?: string, sessionId?: string, title?: string): View {
+    const view: View = { sessionId, title, visible: surface.visible && this.windowFocused, surface, mode, fresh, disposed: false, cwd: editorCwd ?? '', ready: false, generation: 0, editorTab: editorCwd !== undefined };
     this.views.add(view);
+    this.applyTitle(view);
     const listener = surface.webview.onDidReceiveMessage((value: unknown) => {
       void this.receive(view, value).catch(error => this.report(error));
     });
+    const visibility = 'onDidChangeViewState' in surface
+      ? surface.onDidChangeViewState(() => this.visibilityChanged(view))
+      : surface.onDidChangeVisibility(() => this.visibilityChanged(view));
     surface.onDidDispose(() => {
-      view.disposed = true; this.reset(view); listener.dispose(); this.views.delete(view);
+      view.disposed = true; this.reset(view); listener.dispose(); visibility.dispose(); this.views.delete(view);
       if (this.sidebar === view) this.sidebar = undefined;
       if (this.settings === view) this.settings = undefined;
       void view.relay?.dispose().catch(error => this.report(error));
     });
     void this.load(view);
     return view;
+  }
+
+  private visibilityChanged(view: View): void {
+    const visible = view.surface.visible && this.windowFocused;
+    if (view.disposed || view.visible === visible) return;
+    view.visible = visible;
+    view.delivery?.setVisible(view.visible);
+    if (!view.visible) {
+      view.reconnectAvailable = true;
+      clearTimeout(view.timer); view.timer = undefined;
+    } else if (view.reconnectPending) this.reconnect(view);
+    else if (view.relay && !view.ready) this.watchInitialization(view);
+  }
+
+  private watchInitialization(view: View): void {
+    clearTimeout(view.timer); view.timer = undefined;
+    if (!view.visible) return;
+    const timeout = vscode.workspace.getConfiguration('deepseekHarness').get('webviewTimeoutSeconds', 60) * 1000;
+    view.timer = setTimeout(() => this.failed(view, new Error(copy(vscode.env.language).loadTimeout)), timeout);
+  }
+
+  private reconnect(view: View): void {
+    view.reconnectPending = false; view.reconnectAvailable = false;
+    if (view.sessionId) view.fresh = false;
+    this.output.appendLine('view: reconnecting after visibility change');
+    void this.load(view);
   }
 
   private async backendUrl(cwd: string): Promise<string> {
@@ -162,13 +209,16 @@ class Application implements vscode.Disposable {
   }
 
   private async loadView(view: View): Promise<void> {
-    view.loadFailed = false;
+    view.loadFailed = false; view.reconnectPending = false;
+    clearTimeout(view.timer); view.timer = undefined;
+    view.delivery?.dispose(); view.delivery = undefined;
     const generation = ++view.generation;
     const epoch = view.epoch = randomBytes(18).toString('base64');
     const active = (): boolean => !view.disposed && generation === view.generation;
     view.ready = false;
-    const old = view.relay; view.relay = undefined;
-    await old?.dispose();
+    const old = view.relay; const oldConnection = view.connection;
+    view.relay = undefined; view.connection = undefined;
+    await (old ? old.dispose() : oldConnection?.dispose());
     if (!active()) return;
     const text = copy(vscode.env.language);
     const timeout = vscode.workspace.getConfiguration('deepseekHarness').get('webviewTimeoutSeconds', 60) * 1000;
@@ -193,9 +243,7 @@ class Application implements vscode.Disposable {
       transport = new Transport(error => {
         if (!active()) return;
         this.launch = undefined; this.assets = undefined;
-        view.ready = false; view.relay = undefined;
-        this.output.appendLine(redact(error.message));
-        view.surface.webview.html = this.status(`${text.failed}: ${redact(error.message)}`, true);
+        this.failed(view, error);
       });
       view.connection = transport;
       await transport.connect(url);
@@ -204,10 +252,11 @@ class Application implements vscode.Disposable {
       const assets = this.assets ??= new ClientAssets(maxBytes);
       const delivery = new MessageDelivery(value => view.surface.webview.postMessage(value), error => { if (active()) this.failed(view, error); }, maxBytes * 4, timeout);
       view.delivery = delivery;
+      delivery.setVisible(view.visible);
       const relay = new WebRelay(transport, value => { if (active()) delivery.send(value); }, maxBytes,
         (path, signal) => assets.fetch(path, resource => transport!.request(resource, { signal })));
       view.relay = relay;
-      view.timer = setTimeout(() => { if (active()) this.failed(view, new Error(text.loadTimeout)); }, timeout);
+      this.watchInitialization(view);
       const cache = join(this.context.globalStorageUri.fsPath, 'web-assets');
       const webview = view.surface.webview;
       webview.options = { enableScripts: true, localResourceRoots: [this.context.extensionUri, vscode.Uri.file(cache)] };
@@ -221,12 +270,13 @@ class Application implements vscode.Disposable {
         adapterUri: uri(join(this.context.extensionPath, 'dist/v2-adapter.js')),
         styleUri: uri(join(this.context.extensionPath, 'webview/v2.css')), cspSource: webview.cspSource,
       }, { cwd, mode: view.mode, language: vscode.env.language, fresh: view.fresh, editorTab: view.editorTab,
+        sessionTitle: view.fresh ? undefined : view.title,
         queueRevealDelayMs: vscode.workspace.getConfiguration('deepseekHarness').get('queueRevealDelayMilliseconds', 250),
         sessionId: view.editorTab ? view.sessionId : this.context.workspaceState.get<string>(`v2.session:${cwd}`), nonce: epoch, maxTransferBytes: maxBytes, requestTimeoutMs: timeout });
       if (active()) { phase(`HTML published (${Buffer.byteLength(html)} bytes)`); webview.html = html; } else await relay.dispose();
     } catch (error) {
       await transport?.dispose();
-      if (active()) { view.relay = undefined; view.surface.webview.html = this.status(`${text.failed}: ${redact(String(error))}`, true); }
+      if (active()) this.failed(view, error instanceof Error ? error : new Error(String(error)));
       this.output.appendLine(redact(String(error)));
     }
   }
@@ -240,7 +290,11 @@ class Application implements vscode.Disposable {
 
   private failed(view: View, error: Error): void {
     this.reset(view); view.loadFailed = true; this.output.appendLine(redact(error.message));
-    if (!view.disposed) view.surface.webview.html = this.status(`${copy(vscode.env.language).failed}: ${redact(error.message)}`, true);
+    if (view.disposed) return;
+    view.reconnectPending = true;
+    if (!view.visible) return;
+    if (view.reconnectAvailable) { this.reconnect(view); return; }
+    view.surface.webview.html = this.status(`${copy(vscode.env.language).failed}: ${redact(error.message)}`, true);
   }
 
   private status(message: string, retry = false): string {
@@ -281,6 +335,34 @@ class Application implements vscode.Disposable {
     }
   }
 
+  private async installRuntime(view: View): Promise<void> {
+    if (this.installation) { await this.installation.done; return; }
+    if (!vscode.workspace.isTrusted) throw new Error(copy(vscode.env.language).workspace);
+    const controller = new AbortController();
+    const text = startupCopy(vscode.env.language);
+    const done = vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: text.installing, cancellable: true }, async (_progress, cancellation) => {
+      const subscription = cancellation.onCancellationRequested(() => controller.abort());
+      if (cancellation.isCancellationRequested) controller.abort();
+      try {
+        view.surface.webview.html = this.setupPage({ message: text.installing });
+        const node = await findNode();
+        const installed = await installHarness(node.command, await findNpx(node.command), join(this.context.globalStorageUri.fsPath, 'dsh-runtime'), controller.signal,
+          line => this.output.appendLine(redact(line)), vscode.workspace.getConfiguration('deepseekHarness').get('installTimeoutSeconds', 600) * 1000);
+        controller.signal.throwIfAborted();
+        const settings = vscode.workspace.getConfiguration('deepseekHarness');
+        await settings.update('binPath', installed.bin, vscode.ConfigurationTarget.Global);
+        await settings.update('harnessPath', installed.root, vscode.ConfigurationTarget.Global);
+        this.output.appendLine(`${text.saved} DSH ${installed.version}`);
+        if (!view.disposed) { this.reset(view); await this.load(view); }
+      } catch (error) {
+        this.output.appendLine(redact(String(error)));
+        if (!view.disposed) view.surface.webview.html = this.setupPage({ binError: 'installation', installError: controller.signal.aborted ? text.installCancelled : text.installFailed });
+      } finally { subscription.dispose(); }
+    });
+    this.installation = { controller, done: Promise.resolve(done) };
+    try { await done; } finally { this.installation = undefined; }
+  }
+
   private async receive(view: View, value: unknown): Promise<void> {
     if (view.disposed) return;
     const incoming = record(value);
@@ -291,6 +373,7 @@ class Application implements vscode.Disposable {
     switch (message.kind) {
       case 'setup-bin': await this.configureRuntime(view, false); break;
       case 'setup-directory': await this.configureRuntime(view, true); break;
+      case 'setup-install': await this.installRuntime(view); break;
       case 'retry': this.reset(view); await this.load(view); break;
       case 'client-failure': this.failed(view, new Error(String(message.error))); break;
       case 'session-create-failed': await this.sessionCreateFailed(String(message.error)); break;
@@ -326,8 +409,8 @@ class Application implements vscode.Disposable {
         if (view.pendingNew) { view.pendingNew = false; await view.surface.webview.postMessage({ kind: 'new-session' }); }
         if (this.lastEditor) this.sendEditorContext(view, this.lastEditor); break;
       case 'session':
+        if (typeof message.sessionId === 'string') view.sessionId = message.sessionId;
         if (view.editorTab) {
-          if (typeof message.sessionId === 'string') view.sessionId = message.sessionId;
           view.title = message.blank !== false || typeof message.title !== 'string' ? undefined : message.title;
           this.applyTitle(view);
         } else if (view.mode === 'chat' && typeof message.sessionId === 'string') await this.context.workspaceState.update(`v2.session:${view.cwd}`, message.sessionId);
@@ -389,12 +472,14 @@ class Application implements vscode.Disposable {
 
   async shutdown(stopBackend = false): Promise<void> {
     if (this.stopping) return this.stopping;
+    if (this.installation) { this.installation.controller.abort(); await this.installation.done; }
     const backend = this.backend ?? (stopBackend && !this.attachedUrl ? new SharedBackend(join(homedir(), '.dsh-vscode'), join(this.context.extensionPath, 'dist/v2-supervisor.cjs'), line => this.output.appendLine(line)) : undefined);
     this.backend = undefined; this.launch = undefined; this.attachedUrl = undefined;
     this.assets = undefined;
     this.settingsDocument = undefined;
     this.stopping = (async () => {
       await Promise.all([...this.views].map(async view => {
+        view.reconnectPending = false; view.reconnectAvailable = false;
         clearTimeout(view.timer); view.delivery?.dispose();
         view.generation++; view.ready = false; const relay = view.relay; view.relay = undefined;
         await relay?.dispose();

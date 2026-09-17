@@ -22,7 +22,16 @@ interface BrowserGlobals {
 }
 const global = globalThis as unknown as BrowserGlobals;
 const nativeApi = acquireVsCodeApi();
-const api = { postMessage: (value: Record<string, unknown>): void => nativeApi.postMessage({ ...value, epoch: global.__VSCODE_DSH_CONFIG__.nonce }) };
+const config = global.__VSCODE_DSH_CONFIG__;
+let panelState = { cwd: config.cwd, sessionId: config.sessionId, title: config.fresh ? undefined : config.sessionTitle };
+nativeApi.setState(panelState);
+const api = { postMessage: (value: Record<string, unknown>): void => {
+  if (value.kind === 'session' && typeof value.sessionId === 'string') {
+    panelState = { cwd: config.cwd, sessionId: value.sessionId, title: value.blank === false && typeof value.title === 'string' ? value.title : undefined };
+    nativeApi.setState(panelState);
+  }
+  nativeApi.postMessage({ ...value, epoch: config.nonce });
+} };
 const nativeFetch = window.fetch.bind(window);
 const requests = new Map<string, { resolve(value: Packet): void; reject(error: Error): void }>();
 const streams = new Map<string, StreamQueue>();

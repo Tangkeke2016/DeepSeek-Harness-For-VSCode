@@ -4,14 +4,14 @@
 
 ## 中文使用指南
 
-在当前 VS Code 工作区中使用官方 DeepSeek Harness Web 界面，支持独立聊天标签页、历史会话和官方设置。本扩展独立维护，需要另行安装完整的 DSH。
+在当前 VS Code 工作区中使用官方 DeepSeek Harness Web 界面，支持独立聊天标签页、历史会话和官方设置。本扩展独立维护，可一键安装完整的官方 DSH，也可选择已有安装。
 
 ### 开始使用
 
 1. 安装桌面版 VS Code 1.95+ 和 Node.js 22.x（至少 22.19）或 24+。将 Node.js 加入 `PATH`，运行 `node --version` 确认；修改 PATH 后重启 VS Code。
-2. 按照 [官方 DSH](https://github.com/deepseek-ai/deepseek-harness) 的说明安装依赖并完成构建。Remote SSH 用户将扩展安装到远程端，并在服务器准备 Node.js、DSH 和模型凭据。
+2. 准备 npx 和网络连接，或按照 [官方 DSH](https://github.com/deepseek-ai/deepseek-harness) 说明准备已有安装。Remote SSH 用户将扩展安装到远程端，并在服务器准备 Node.js 和模型凭据。
 3. 打开并信任项目工作区，点击编辑器右上角鲸鱼按钮打开独立聊天标签页。
-4. 首次配置时选择“选择 DSH 目录”或“选择 bin 文件”。文件选择器使用当前连接的文件系统；有效路径自动保存并加载，无效路径提示后重新选择，取消即可停止。
+4. 首次配置可点击“一键安装官方 DSH”，执行 `npx @deepseek-ai/dsh web` 并自动保存路径；也可选择“选择 DSH 目录”或“选择 bin 文件”。文件选择器使用当前连接的文件系统；有效路径自动保存并加载，无效路径提示后重新选择，取消即可停止。
 5. 在官方设置页面配置模型及凭据，开始会话。扩展自动启动或复用后台，无需手动运行 `pnpm dsh web`。
 
 ### DSH 路径
@@ -30,18 +30,18 @@
 
 新建会话失败时仍可访问历史。若更新 DSH 后提示预设依赖无法解析，可点击“重启后台并重试”；该操作会停止共享后台的所有任务。
 
-请前往 [项目 Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) 提交复现步骤、系统、VS Code/DSH 版本及 Remote SSH 使用情况。日志位于“输出 → DeepSeek Harness”，分享前移除凭据和私人信息。扩展不会自动安装或升级 DSH，第三方插件兼容性取决于对应版本。
+请前往 [项目 Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) 提交复现步骤、系统、VS Code/DSH 版本及 Remote SSH 使用情况。日志位于“输出 → DeepSeek Harness”，分享前移除凭据和私人信息。扩展仅在点击一键安装后下载官方 DSH，不会自动升级已有安装；第三方插件兼容性取决于对应版本。
 
 ## English guide
 
-Use the official DeepSeek Harness Web interface in the current VS Code workspace, with independent chat tabs, session history, and official settings. This independently maintained extension requires a separate, complete DSH installation.
+Use the official DeepSeek Harness Web interface in the current VS Code workspace, with independent chat tabs, session history, and official settings. This independently maintained extension can install the complete official DSH distribution or use an existing installation.
 
 ### Get started
 
 1. Install desktop VS Code 1.95+ and Node.js 22.x starting at 22.19, or 24+. Add Node.js to `PATH` and confirm `node --version`; restart VS Code after changing PATH.
-2. Follow the [official DSH instructions](https://github.com/deepseek-ai/deepseek-harness) to install dependencies and build. For Remote SSH, install the extension on the remote host and prepare Node.js, DSH, and model credentials there.
+2. Prepare npx and network access, or an existing installation following the [official DSH instructions](https://github.com/deepseek-ai/deepseek-harness). For Remote SSH, install the extension on the remote host and prepare Node.js and model credentials there.
 3. Open and trust a project workspace. Click the whale in the editor title bar to open an independent chat tab.
-4. During setup, choose **Select DSH folder** or **Select bin file**. The picker uses the current connection's filesystem. Valid paths are saved and loaded automatically; invalid paths show an error and reopen the picker. Cancel to stop.
+4. During setup, choose **Install official DSH** to run `npx @deepseek-ai/dsh web` and save the installed path automatically, or choose **Select DSH folder** or **Select bin file**. The picker uses the current connection's filesystem. Valid paths are saved and loaded automatically; invalid paths show an error and reopen the picker. Cancel to stop.
 5. Configure models and credentials in official settings and start chatting. The extension starts or reuses the backend automatically; no manual `pnpm dsh web` command is needed.
 
 ### DSH paths
@@ -60,6 +60,6 @@ Keep the complete DSH installation and Web resources; copying `bin.js` alone is 
 
 History stays available if creating a session fails. If preset dependencies cannot be resolved after updating DSH, choose **Restart backend and retry**; this stops all tasks on the shared backend.
 
-Report problems at [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) with reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Logs appear under **Output → DeepSeek Harness**; remove credentials and private information before sharing. The extension does not install or upgrade DSH automatically; third-party plugin compatibility depends on the versions involved.
+Report problems at [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) with reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Logs appear under **Output → DeepSeek Harness**; remove credentials and private information before sharing. The extension downloads official DSH only when you choose one-click installation and does not automatically upgrade existing installations; third-party plugin compatibility depends on the versions involved.
 
 [Back to top / 返回顶部](#deepseek-harness-for-vs-code)

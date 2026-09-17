@@ -34,8 +34,8 @@ const id = '@deepseek-ai/dsh-vscode-client';
 const hmr = '@deepseek-ai/dsh-client-hmr';
 global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.id !== hmr);
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.6', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.6', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.7', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.7', entries: [id] });
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };
@@ -136,8 +136,10 @@ global.__ModuleLoader__.load({ id, factory: require => {
         const state = ctx.sessions.list.getSnapshot();
         const selected = selecting ? undefined : state.current;
         const changed = current !== selected; current = selected;
-        const summary = current ? state.byId[current] : undefined;
-        title.textContent = summary && !summary.blank ? summary.displayTitle : text.fresh;
+        const restoring = selecting && !creating && !config.fresh ? config.sessionId : undefined;
+        const summary = state.byId[restoring ?? current ?? ''];
+        const savedTitle = !config.fresh && (restoring || current === config.sessionId) ? config.sessionTitle : undefined;
+        title.textContent = summary ? (summary.blank ? text.fresh : summary.displayTitle) : savedTitle ?? text.fresh;
         title.title = title.textContent;
         if (changed) renderChips();
         const announcement = { kind: 'session', sessionId: current, title: title.textContent, blank: summary?.blank ?? true };

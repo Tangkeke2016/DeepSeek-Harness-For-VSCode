@@ -2,22 +2,22 @@
 
 [中文](README.md) | English
 
-Use the official DeepSeek Harness Web interface in your VS Code workspace, with independent chat tabs, session history, editor selection context, and settings. This independently maintained integration requires a separate [official DSH installation](https://github.com/deepseek-ai/deepseek-harness).
+Use the official DeepSeek Harness Web interface in your VS Code workspace, with independent chat tabs, session history, editor selection context, and settings. This independently maintained integration uses a complete [official DSH installation](https://github.com/deepseek-ai/deepseek-harness), installed through setup or selected from an existing directory.
 
 ## Prerequisites
 
 - Desktop VS Code 1.95 or newer.
 - Node.js 22.x starting at 22.19, or 24+, available on `PATH`. Confirm with `node --version`; restart VS Code after changing PATH.
-- A complete DSH installation with dependencies and build outputs. Copying `bin.js` alone is insufficient: its dependencies and Web resources are also required.
+- Node.js with npx and network access for one-click installation, or an existing complete DSH installation. Copying `bin.js` alone is insufficient: its dependencies and Web resources are also required.
 
-For Remote SSH, install the extension on the remote host and prepare Node.js, DSH, and model credentials there. Selected paths must also refer to the remote host.
+For Remote SSH, install the extension on the remote host and prepare Node.js and model credentials there. One-click installation runs on that remote host. Selected paths must also refer to the remote host.
 
 ## Install and start
 
-1. Download `tangkeke-deepseek-harness-0.1.6.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
+1. Download `tangkeke-deepseek-harness-0.1.7.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
 2. Choose **Install from VSIX…** in the VS Code Extensions panel and reload when prompted.
 3. Open and trust a project workspace. Click the whale in the editor title bar, or search the Command Palette for `DeepSeek Harness` to open chat.
-4. If the DSH path is missing, choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
+4. If the DSH path is missing, choose **Install official DSH** to run `npx @deepseek-ai/dsh web` and save its installed path automatically, or choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
 5. Configure models and credentials in the official settings page and start a conversation.
 
 History is sorted by latest activity, with seconds, minutes, hours, or month/day shown on the right. Editor context and reading hints are hidden in both pending interjections and the transcript.
@@ -26,7 +26,11 @@ The working directory is the current VS Code workspace. The extension starts or 
 
 New sessions display “New session” while being created, and the loading page follows VS Code colors. Briefly queued messages do not immediately occupy space above the input; queues that persist for the default 250 milliseconds remain visible, without delaying submission. Adjust `deepseekHarness.queueRevealDelayMilliseconds` in VS Code settings, or set it to 0 to show queues immediately. Reopen the view after changing it.
 
-With “Follow VS Code” selected, the conversation background uses the current VS Code editor background color and updates as the theme changes. Explicit light and dark selections retain the official palettes.
+With “Follow VS Code” selected, the conversation and settings backgrounds use the current VS Code editor background color and update as the theme changes. Explicit light and dark selections retain the official palettes.
+
+When a hidden tab or unfocused window returns, failed connections automatically reload the original session without restarting the backend or resending messages. A failed reconnect shows an error instead of retrying indefinitely.
+
+One-click installation follows the version selected by the official npx command. Keep its saved installation directory. Installation progress supports cancellation; `deepseekHarness.installTimeoutSeconds` sets the deadline (default: 600 seconds).
 
 ## DSH paths
 
