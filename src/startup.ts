@@ -1,12 +1,61 @@
 /** Localized setup and loading surfaces available before the official client starts. */
-const en = { install: 'Install official DSH', installing: 'Installing official DSH…', installFailed: 'Installation failed. See Output → DeepSeek Harness, then retry or select an existing DSH installation.', installCancelled: 'Installation cancelled. You can retry or select an existing DSH installation.', installHint: 'One-click installation runs npx @deepseek-ai/dsh web on this host and saves the installed path automatically. Node.js with npx and network access are required.', tagline: 'Into the Unknown', checking: 'Checking the environment…', loading: 'Loading Harness…', node: 'Node.js is unavailable or unsupported. Install Node.js 22.19+ (22.x) or 24+, add it to PATH, then restart VS Code. For SSH, install it on the remote host.', download: 'Download Node.js', bin: 'Official DSH ({project}) bin.js was not found. Select its bin.js file or an installed DSH folder.', binAction: 'Select bin file', directoryAction: 'Select DSH folder', binPrompt: 'Select the official DSH bin.js file', directoryPrompt: 'Select the installed and built DSH folder', project: 'Official DSH project', retry: 'Reload', invalid: 'Select a valid DSH bin.js file or installation folder.', saved: 'DSH path saved in VS Code user settings on this host.' };
-const zh: typeof en = { install: '一键安装官方 DSH', installing: '正在安装官方 DSH…', installFailed: '安装失败，请查看“输出 → DeepSeek Harness”，然后重试或选择已有 DSH 安装。', installCancelled: '安装已取消，可以重试或选择已有 DSH 安装。', installHint: '一键安装会在当前主机执行 npx @deepseek-ai/dsh web 并自动保存安装路径，需要 Node.js、npx 和网络连接。', tagline: '探索未至之境', checking: '正在检查运行环境…', loading: '正在加载 Harness…', node: 'Node.js 未找到或版本不满足要求。请安装 Node.js 22.19+（22.x）或 24+，加入 PATH 后重启 VS Code。SSH 工作区请在远程机器安装。', download: '前往 Node.js 官方下载', bin: '未找到官方 DSH ({project})的 bin.js，请选择 bin.js 文件或已安装的 DSH 目录。', binAction: '选择 bin 文件', directoryAction: '选择 DSH 目录', binPrompt: '选择官方 DSH 的 bin.js 文件', directoryPrompt: '选择已安装依赖并构建完成的 DSH 目录', project: 'DSH 官方项目', retry: '重新加载', invalid: '请选择有效的 DSH bin.js 文件或安装目录。', saved: 'DSH 路径已保存到当前运行主机的 VS Code 用户设置。' };
+
+const en = {
+  install: 'Install official DSH',
+  installing: 'Installing official DSH…',
+  installFailed: 'Installation failed. See Output → DeepSeek Harness, then retry or select an existing DSH installation.',
+  installCancelled: 'Installation cancelled. You can retry or select an existing DSH installation.',
+  installHint: 'One-click installation runs npx @deepseek-ai/dsh web on this host and saves the installed path automatically. Node.js with npx and network access are required.',
+  tagline: 'Into the Unknown',
+  checking: 'Checking the environment…',
+  loading: 'Loading Harness…',
+  node: 'Node.js is unavailable or unsupported. Install Node.js 22.19+ (22.x) or 24+, add it to PATH, then restart VS Code. For SSH, install it on the remote host.',
+  download: 'Download Node.js',
+  bin: 'Official DSH ({project}) bin.js was not found. Select its bin.js file or an installed DSH folder.',
+  binAction: 'Select bin file',
+  directoryAction: 'Select DSH folder',
+  binPrompt: 'Select the official DSH bin.js file',
+  directoryPrompt: 'Select the installed and built DSH folder',
+  project: 'Official DSH project',
+  retry: 'Reload',
+  invalid: 'Select a valid DSH bin.js file or installation folder.',
+  saved: 'DSH path saved in VS Code user settings on this host.'
+};
+const zh: typeof en = {
+  install: '一键安装官方 DSH',
+  installing: '正在安装官方 DSH…',
+  installFailed: '安装失败，请查看“输出 → DeepSeek Harness”，然后重试或选择已有 DSH 安装。',
+  installCancelled: '安装已取消，可以重试或选择已有 DSH 安装。',
+  installHint: '一键安装会在当前主机执行 npx @deepseek-ai/dsh web 并自动保存安装路径，需要 Node.js、npx 和网络连接。',
+  tagline: '探索未至之境',
+  checking: '正在检查运行环境…',
+  loading: '正在加载 Harness…',
+  node: 'Node.js 未找到或版本不满足要求。请安装 Node.js 22.19+（22.x）或 24+，加入 PATH 后重启 VS Code。SSH 工作区请在远程机器安装。',
+  download: '前往 Node.js 官方下载',
+  bin: '未找到官方 DSH ({project})的 bin.js，请选择 bin.js 文件或已安装的 DSH 目录。',
+  binAction: '选择 bin 文件',
+  directoryAction: '选择 DSH 目录',
+  binPrompt: '选择官方 DSH 的 bin.js 文件',
+  directoryPrompt: '选择已安装依赖并构建完成的 DSH 目录',
+  project: 'DSH 官方项目',
+  retry: '重新加载',
+  invalid: '请选择有效的 DSH bin.js 文件或安装目录。',
+  saved: 'DSH 路径已保存到当前运行主机的 VS Code 用户设置。'
+};
 
 /** @param language - VS Code language. @returns Setup copy for that locale. */
-export function startupCopy(language: string): typeof en { return language.toLowerCase().startsWith('zh') ? zh : en; }
+export function startupCopy(language: string): typeof en {
+  return language.toLowerCase().startsWith('zh') ? zh : en;
+}
 
 /** Failures are independent so both missing prerequisites can be repaired. */
-export interface StartupState { installError?: string; nodeError?: string; binError?: string; message?: string; retry?: boolean }
+export interface StartupState {
+  installError?: string;
+  nodeError?: string;
+  binError?: string;
+  message?: string;
+  retry?: boolean
+}
 
 /** @param language - VS Code language. @param nonce - Script nonce. @param whale - Trusted bundled SVG. @param state - Loading or setup status. @returns A self-contained, network-free initial page. */
 export function startupHtml(language: string, nonce: string, whale: string, state: StartupState): string {
@@ -14,6 +63,8 @@ export function startupHtml(language: string, nonce: string, whale: string, stat
   const escape = (s: string): string => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
   const setup = state.nodeError !== undefined || state.binError !== undefined;
   const button = (action: string, label: string): string => `<button data-action="${action}">${escape(label)}</button>`;
+
+  // The page is self-contained: no remote styles, scripts, or fonts.
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'"><style>
 html,body{margin:0;min-height:100%;background:var(--vscode-editor-background);color:#fff}body.vscode-light,body.vscode-high-contrast-light{color:#000}body{font:13px var(--vscode-font-family);display:grid;place-items:center;min-height:100vh}.page{width:min(440px,calc(100% - 40px));text-align:center;padding:32px 0}.whale svg{width:58px;height:44px;color:#4d6bfe}h1{font-size:22px;font-weight:500;margin:20px 0 10px}.spinner{width:22px;height:22px;border:2px solid var(--vscode-widget-border,#8884);border-top-color:#4d6bfe;border-radius:50%;animation:spin 1s linear infinite;margin:24px auto 12px}@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.spinner{animation-duration:3s}}section{text-align:left;padding:16px;margin-top:20px;border:1px solid var(--vscode-widget-border,#8884);border-radius:10px}p{line-height:1.7;overflow-wrap:anywhere}button{font:inherit;padding:8px 12px;margin:4px;border:0;border-radius:5px;cursor:pointer;color:#fff;background:#4d6bfe}button:focus-visible,a:focus-visible{outline:2px solid var(--vscode-focusBorder)}a{color:var(--vscode-textLink-foreground)}
 </style></head><body><main class="page"><div class="whale" aria-hidden="true">${whale}</div><h1>${escape(t.tagline)}</h1>

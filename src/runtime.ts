@@ -38,6 +38,8 @@ export function expandHome(value: string): string {
 export function nodeSupported(version: string): boolean {
   const match = /^v?(\d+)\.(\d+)(?:\.|$)/.exec(version.trim());
   if (!match) return false;
+
+  // 22.x is accepted from 22.19 up; every later major is accepted outright.
   const major = Number(match[1]);
   return major >= 24 || (major === MINIMUM_MAJOR && Number(match[2]) >= MINIMUM_MINOR);
 }
@@ -58,12 +60,16 @@ function versionRoots(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): string
   const roots = platform === 'win32'
     ? [env.APPDATA && join(env.APPDATA, 'nvm')]
     : [join(homedir(), '.nvm/versions/node'), join(homedir(), '.nodenv/versions')];
+
   const directories: string[] = [];
   for (const root of roots) {
     if (!root) continue;
+
     let versions: string[];
     // A version manager that is not installed owns no candidates.
     try { versions = readdirSync(root); } catch { continue; }
+
+    // Descending name order puts the newest version first for the common layouts.
     for (const version of versions.sort().reverse()) directories.push(platform === 'win32' ? join(root, version) : join(root, version, 'bin'));
   }
   return directories;
@@ -88,6 +94,8 @@ export function nodeCandidates(env: NodeJS.ProcessEnv, platform: NodeJS.Platform
   const directories = [...(env.PATH ?? '').split(delimiter).filter(directory => directory.trim()), ...installRoots(env, platform), ...versionRoots(env, platform)];
   const candidates: NodeCandidate[] = directories.map(directory => ({ command: join(directory, name) }));
   if (!electron) candidates.push({ command: host });
+
+  // Windows resolves executable names case-insensitively.
   const seen = new Set<string>();
   return candidates.filter(candidate => {
     const key = platform === 'win32' ? candidate.command.toLowerCase() : candidate.command;
@@ -118,11 +126,14 @@ export async function pickNode(candidates: readonly NodeCandidate[]): Promise<No
   const rejected: string[] = [];
   for (const candidate of candidates) {
     if (!existsSync(candidate.command)) continue;
+
     const version = await versionOf(candidate);
     if (version === undefined) continue;
     if (nodeSupported(version)) return { command: candidate.command, version };
     rejected.push(`${candidate.command} (${version})`);
   }
+
+  // Report what was found so an installed-but-unsupported Node.js is visible.
   const found = rejected.length ? ` Found ${rejected.join(', ')}.` : '';
   throw new Error(`Node.js 22.19+ (22.x) or 24+ is required to launch the Harness.${found} Install Node.js and make sure it is on PATH.`);
 }
@@ -143,6 +154,7 @@ export function findNode(): Promise<NodeRuntime> {
  * @returns Absolute path of the official `lib/bin.js` entry.
  */
 export function findCli(harnessPath: string, cwd: string, binPath = ''): string {
+  // An explicit bin.js is validated as a readable file before it is used.
   if (binPath.trim()) {
     const file = expandHome(binPath.trim());
     if (!isAbsolute(file) || basename(file) !== 'bin.js') throw new Error('binPath must be an absolute path to the official bin.js');
@@ -150,6 +162,8 @@ export function findCli(harnessPath: string, cwd: string, binPath = ''): string 
     accessSync(file, constants.R_OK);
     return file;
   }
+
+  // A configured directory must contain a built CLI; nothing else is substituted.
   const configured = harnessPath.trim();
   if (configured) {
     const root = expandHome(configured);
@@ -159,6 +173,9 @@ export function findCli(harnessPath: string, cwd: string, binPath = ''): string 
     accessSync(located, constants.R_OK);
     return located;
   }
+
+  // Discovery order: the workspace checkout, the workspace's installed package,
+  // then every PATH entry's global npm installation.
   const candidates = [join(cwd, CLI_ENTRIES[0])];
   try {
     const req = createRequire(join(cwd, 'package.json'));
@@ -172,6 +189,7 @@ export function findCli(harnessPath: string, cwd: string, binPath = ''): string 
     candidates.push(join(directory, CLI_ENTRIES[2]));
     candidates.push(resolve(directory, '../lib/node_modules/@deepseek-ai/dsh/lib/bin.js'));
   }
+
   const found = candidates.find(existsSync);
   if (!found) throw new Error('Official Harness not found. Set deepseekHarness.harnessPath to the Harness installation directory.');
   if (!statSync(found).isFile()) throw new Error('Official Harness CLI must be a file');

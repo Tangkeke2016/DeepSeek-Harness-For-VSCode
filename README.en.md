@@ -14,7 +14,7 @@ For Remote SSH, install the extension on the remote host and prepare Node.js and
 
 ## Install and start
 
-1. Download `tangkeke-deepseek-harness-0.1.7.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
+1. Download `tangkeke-deepseek-harness-0.1.9.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
 2. Choose **Install from VSIX…** in the VS Code Extensions panel and reload when prompted.
 3. Open and trust a project workspace. Click the whale in the editor title bar, or search the Command Palette for `DeepSeek Harness` to open chat.
 4. If the DSH path is missing, choose **Install official DSH** to run `npx @deepseek-ai/dsh web` and save its installed path automatically, or choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.

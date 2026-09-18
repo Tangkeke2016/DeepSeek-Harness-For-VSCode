@@ -1,4 +1,5 @@
 /** Validated JSON readers for the version-bound Harness HTTP and mux protocol. */
+
 export type RecordValue = Record<string, unknown>;
 
 /** @param value - JSON input. @returns Object fields, rejecting non-objects. */
@@ -28,10 +29,13 @@ export function sequence(value: unknown): number {
 /** @param value - Launch URL entered by the user or read from the owned process. @returns Local authenticated URL. */
 export function launchUrl(value: string): URL {
   const url = new URL(value);
+
+  // Only the loopback Web server this extension started or attached to is accepted.
   if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
     || url.pathname !== '/' || url.username || url.password || !url.searchParams.get('token')) {
     throw new Error('Expected a loopback HTTP launch URL with ?token=…');
   }
+
   return url;
 }
 
@@ -44,9 +48,11 @@ export function redact(value: string): string {
 export function rpcResult(value: unknown, rpcId: string): unknown {
   const envelope = record(value);
   if (envelope.type !== 'server-response' || envelope.rpcId !== rpcId) throw new Error('Invalid RPC response correlation');
+
   const result = record(envelope.result);
   if (result.ok === true) return result.value;
   if (result.ok !== false) throw new Error('Invalid RPC result');
+
   const error = record(result.error);
   throw new Error(`${string(error.code)}: ${string(error.message)}`);
 }

@@ -4,11 +4,11 @@
 !package.nls.zh-cn.json
 !LICENSE
 !THIRD_PARTY_NOTICES.md
-!dist/v2-extension.cjs
-!dist/v2-supervisor.cjs
-!dist/v2-bridge.js
-!dist/v2-adapter.js
+!dist/extension.cjs
+!dist/supervisor.cjs
+!dist/bridge.js
+!dist/adapter.js
 !dist/*.LEGAL.txt
-!webview/v2.css
-!media/**
+!webview/style.css
+!resources/**
 !EXTENSION.md

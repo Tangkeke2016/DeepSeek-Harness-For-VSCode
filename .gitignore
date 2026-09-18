@@ -1,5 +1,6 @@
 node_modules/
 dist/
+releases/
 .cache/
 .runtime/
 .test-output/
@@ -10,3 +11,5 @@ tests/
 .env.*
 .DS_Store
 Thumbs.db
+extras/
+.publish/

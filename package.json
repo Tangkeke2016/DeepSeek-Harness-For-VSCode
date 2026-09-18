@@ -2,12 +2,12 @@
   "name": "tangkeke-deepseek-harness",
   "displayName": "DeepSeek Harness – Everything is a Plugin",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "publisher": "TangKeke",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "icon": "media/icon.png",
+  "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.95.0",
     "node": "^22.19.0 || >=24.0.0"
@@ -29,7 +29,7 @@
   "extensionKind": [
     "workspace"
   ],
-  "main": "./dist/v2-extension.cjs",
+  "main": "./dist/extension.cjs",
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false
@@ -42,7 +42,7 @@
         {
           "id": "deepseekHarness",
           "title": "DeepSeek Harness",
-          "icon": "media/whale.svg"
+          "icon": "resources/whale.svg"
         }
       ]
     },
@@ -78,8 +78,8 @@
         "command": "deepseekHarness.newSession",
         "title": "%newSession%",
         "icon": {
-          "light": "media/whale-light.svg",
-          "dark": "media/whale-dark.svg"
+          "light": "resources/whale-light.svg",
+          "dark": "resources/whale-dark.svg"
         }
       },
       {
@@ -102,8 +102,8 @@
         "command": "deepseekHarness.newEditorSession",
         "title": "%newSession%",
         "icon": {
-          "light": "media/whale-light.svg",
-          "dark": "media/whale-dark.svg"
+          "light": "resources/whale-light.svg",
+          "dark": "resources/whale-dark.svg"
         }
       }
     ],

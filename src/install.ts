@@ -2,13 +2,14 @@
 import { spawn, execFile } from 'node:child_process';
 import { access, mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { delimiter, dirname, join, resolve } from 'node:path';
-import { launchUrl, redact } from '../protocol.ts';
+import { launchUrl, redact } from './protocol.ts';
 
 /** A complete installed DSH package and its launch entry. */
 export interface InstalledHarness { root: string; bin: string; version: string }
 
 /** @param node - Supported Node executable. @returns The npx CLI shipped beside that Node installation. */
 export async function findNpx(node: string): Promise<string> {
+  // A symlinked or version-managed node keeps npm beside its resolved installation.
   const directories = new Set([dirname(node), dirname(await realpath(node))]);
   for (const directory of directories) {
     for (const candidate of [join(directory, 'node_modules/npm/bin/npx-cli.js'), resolve(directory, '../lib/node_modules/npm/bin/npx-cli.js')]) {
@@ -31,9 +32,14 @@ export async function findNpx(node: string): Promise<string> {
 export async function installHarness(node: string, npx: string, target: string, signal: AbortSignal, output: (text: string) => void, timeoutMs: number): Promise<InstalledHarness> {
   signal.throwIfAborted();
   await mkdir(target, { recursive: true });
+
+  // npx installs into a throwaway prefix, so the official package is never
+  // hoisted into the user's project or global tree.
   const attempt = await mkdtemp(join(target, 'bootstrap-'));
   await writeFile(join(attempt, 'package.json'), JSON.stringify({ name: 'dsh-vscode-bootstrap', version: '0.0.0', private: true }));
   const cache = join(attempt, 'npm-cache');
+
+  // The bootstrap must not inherit model credentials or a foreign npm/dsh configuration.
   const env = { ...process.env };
   for (const name of Object.keys(env)) {
     if (/KEY|SECRET|TOKEN|PASSWORD/i.test(name) || ['npm_config_cache', 'npm_config_yes', 'npm_config_prefix', 'dsh_home'].includes(name.toLowerCase())) delete env[name];
@@ -44,18 +50,22 @@ export async function installHarness(node: string, npx: string, target: string, 
   env.npm_config_yes = 'true';
   env.npm_config_prefix = attempt;
   env.DSH_HOME = join(attempt, 'bootstrap-home');
+
   await new Promise<void>((done, fail) => {
+    // A detached process group lets cancellation kill the whole npx tree.
     const child = spawn(node, [npx, '@deepseek-ai/dsh', 'web', '--host', '127.0.0.1', '--port', '0', '--no-open'], {
       cwd: attempt, env, shell: false, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
     });
     let error: Error | undefined;
     let ready = false;
     let stopping: Promise<void> | undefined;
+
     const stop = (): void => {
       if (stopping || !child.pid || child.exitCode !== null) return;
       const pid = child.pid;
       stopping = process.platform === 'win32' ? new Promise<void>((resolveStop, rejectStop) => {
         execFile('taskkill.exe', ['/pid', String(pid), '/t', '/f'], { windowsHide: true }, failure => {
+          // The tree is gone when the direct child exited without a signal.
           if (failure && child.exitCode === null && child.signalCode === null) rejectStop(failure); else resolveStop();
         });
       }) : new Promise<void>((resolveStop, rejectStop) => {
@@ -64,10 +74,12 @@ export async function installHarness(node: string, npx: string, target: string, 
       });
       void stopping.catch(failure => { error = failure as Error; child.kill(); });
     };
+
     const timer = setTimeout(() => { error = new Error('Official DSH installation timed out'); stop(); }, timeoutMs);
     signal.addEventListener('abort', stop, { once: true });
     if (signal.aborted) stop();
     child.on('error', failure => { error = failure; });
+
     for (const stream of [child.stdout, child.stderr]) {
       let buffered = '';
       stream.setEncoding('utf8');
@@ -75,20 +87,26 @@ export async function installHarness(node: string, npx: string, target: string, 
         buffered += data;
         let newline: number;
         while ((newline = buffered.indexOf('\n')) >= 0) {
-          const line = buffered.slice(0, newline); buffered = buffered.slice(newline + 1);
+          const line = buffered.slice(0, newline);
+          buffered = buffered.slice(newline + 1);
           output(redact(line));
+
+          // The Web server prints its authenticated launch URL once it listens.
           for (const match of line.matchAll(/http:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+\/\?token=[^\s"'<>]+/g)) {
             try { launchUrl(match[0]); }
             catch (failure) { output(String(failure)); continue; }
             ready = true; stop();
           }
         }
+        // Drop oversized unterminated output instead of buffering it forever.
         if (buffered.length > 65536) buffered = buffered.slice(-65536);
       });
       stream.on('end', () => { if (buffered) output(redact(buffered)); });
     }
+
     child.once('close', (code, killedBy) => {
-      clearTimeout(timer); signal.removeEventListener('abort', stop);
+      clearTimeout(timer);
+      signal.removeEventListener('abort', stop);
       void Promise.resolve(stopping).then(() => {
         if (signal.aborted) fail(signal.reason);
         else if (error) fail(error);
@@ -98,6 +116,9 @@ export async function installHarness(node: string, npx: string, target: string, 
     });
   });
   signal.throwIfAborted();
+
+  // npx leaves exactly one extracted package under its cache; any other count
+  // means the bootstrap did not install the official distribution.
   const packages: InstalledHarness[] = [];
   for (const entry of await readdir(join(cache, '_npx'), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -105,9 +126,11 @@ export async function installHarness(node: string, npx: string, target: string, 
     let source: string;
     try { source = await readFile(join(root, 'package.json'), 'utf8'); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+
     const metadata = JSON.parse(source) as { name?: unknown; version?: unknown };
     if (metadata.name !== '@deepseek-ai/dsh' || typeof metadata.version !== 'string') throw new Error('Installed package is not the official DSH distribution');
-    const bin = join(root, 'lib/bin.js'); await access(bin);
+    const bin = join(root, 'lib/bin.js');
+    await access(bin);
     packages.push({ root, bin, version: metadata.version });
   }
   if (packages.length !== 1) throw new Error('Unable to identify the DSH installation created by npx');

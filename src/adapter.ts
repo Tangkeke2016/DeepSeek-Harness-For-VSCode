@@ -7,7 +7,7 @@ import { settleQueueDisplay } from './queue-display.ts';
 import { deleteSession, type DeletableSession } from './delete-session.ts';
 
 interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
-interface Summary { id: string; updatedAt: number; displayTitle: string; blank: boolean; running: boolean }
+interface Summary { id: string; updatedAt: number; displayTitle: string; blank: boolean; running: boolean; retainedBy?: Record<string, number> }
 interface SessionState { phase: string; current?: string; ids: string[]; byId: Record<string, Summary> }
 interface Workspace { workspaceId: string; path: string; sessionIds: string[] }
 interface WorkspaceState { phase: string; items: Workspace[]; archivedSessionIds: string[] }
@@ -26,16 +26,21 @@ interface Globals {
   __DSH_BOOT__: { entries: { id: string; [key: string]: unknown }[]; batches: { entries: string[]; [key: string]: unknown }[] };
   __ModuleLoader__: { load(entry: { id: string; factory: (require: (name: string) => unknown) => unknown }): void };
 }
+
 const global = globalThis as unknown as Globals;
 const config = global.__VSCODE_DSH_CONFIG__;
 const bridge = global.__VSCODE_DSH__;
 const id = '@deepseek-ai/dsh-vscode-client';
+
 // VSIX clients reload with the view; the development-only EventSource belongs to the browser server.
 const hmr = '@deepseek-ai/dsh-client-hmr';
 global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.id !== hmr);
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.8', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.8', entries: [id] });
+
+// Register this plugin ahead of the official entries, so the header exists first.
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.9', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.9', entries: [id] });
+
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };
@@ -43,20 +48,30 @@ global.__ModuleLoader__.load({ id, factory: require => {
   return { inject: ['sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme'], apply(ctx: Context): void {
     ctx.effect(() => {
       let text = copy(ctx.locale.getSnapshot().active);
+      // Aborting this controller detaches every late callback of this view.
       const lifetime = new AbortController();
+
+      // Header: the session title on the left, the three actions on the right.
       const header = document.createElement('header'); header.id = 'vscode-header';
       const title = document.createElement('span'); title.id = 'vscode-title';
       const actions = document.createElement('div'); actions.id = 'vscode-actions';
       header.append(title, actions); document.body.append(header);
       document.body.dataset.dshVscode = config.mode;
+
+      // The official client asks for the system color scheme, so VS Code's theme answers.
       const syncTheme = (snapshot: { preference: string }): void => {
         document.body.toggleAttribute('data-vscode-theme-background', snapshot.preference === 'system');
       };
       const stopTheme = ctx.on('theme/change', syncTheme);
       syncTheme(ctx.theme.getTheme());
+
       const stopQueueDisplay = settleQueueDisplay(config.queueRevealDelayMs ?? 250);
+
+      // History popup, plus the per-row context menu it opens.
       const menu = document.createElement('div'); menu.id = 'vscode-history'; menu.hidden = true; menu.setAttribute('role', 'menu'); header.append(menu);
       const contextMenu = document.createElement('div'); contextMenu.id = 'vscode-history-context'; contextMenu.hidden = true; contextMenu.setAttribute('role', 'menu'); header.append(contextMenu);
+
+      // One chip strip, moved into the official composer seat once it mounts.
       const chips = document.createElement('div'); chips.id = 'vscode-contexts';
       const roots: ReturnType<typeof dom.createRoot>[] = [];
       const renderButtons: (() => void)[] = [];
@@ -68,13 +83,18 @@ global.__ModuleLoader__.load({ id, factory: require => {
       let settingsOpened = false;
       let settingsSeen = false;
       const contexts = new Map<string, Map<string, EditorContext>>();
+
       const currentChips = (): Map<string, EditorContext> => {
-        const key = current ?? ''; let value = contexts.get(key);
+        const key = current ?? '';
+        let value = contexts.get(key);
         if (!value) { value = new Map(); contexts.set(key, value); }
         return value;
       };
+
       const renderChips = (): void => {
         const owned = currentChips();
+
+        // The client reports which chips a prompt consumed; drop exactly those.
         bridge.submitted = sent => {
           for (const value of sent) if (JSON.stringify(owned.get(value.key)) === JSON.stringify(value)) owned.delete(value.key);
           renderChips();
@@ -89,9 +109,11 @@ global.__ModuleLoader__.load({ id, factory: require => {
         }
       };
       bridge.contexts = () => [...currentChips().values()];
+
       let creating = false;
       const fresh = (): void => {
         menu.hidden = true;
+        // Ignore the request while the client is still restoring its own session.
         if (!workspace || selecting || creating || (current && ctx.sessions.list.getSnapshot().byId[current]?.blank)) return;
         creating = true; selecting = true; update();
         void ctx.sessions.create({ workspaceId: workspace.workspaceId }).then(sessionId => {
@@ -101,6 +123,8 @@ global.__ModuleLoader__.load({ id, factory: require => {
           if (!lifetime.signal.aborted) { selecting = false; update(); }
         });
       };
+
+      // One header action: a fixed seat, a React root, and a tooltip-labelled button.
       const button = (key: 'history' | 'fresh' | 'settings', icon: string, action: () => void): void => {
         const seat = document.createElement('span'); actions.append(seat);
         const root = dom.createRoot(seat); roots.push(root);
@@ -108,9 +132,11 @@ global.__ModuleLoader__.load({ id, factory: require => {
           react.createElement('button', { type: 'button', 'aria-label': text[key], onClick: action }, react.createElement(localIcons[icon] ?? primitives[icon], { size: 16 }))));
         renderButtons.push(render); render();
       };
+
       // The official new-chat outline spans 15.3526 units inside its 16-unit viewport.
       const historyIcon = () => react.createElement('svg', { width: 16, height: 16, viewBox: '1.57831 1.57831 20.84338 20.84338', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
         ...['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5', 'M12 7v5l4 2'].map(d => react.createElement('path', { d, key: d })));
+
       // Local copies of the two icons the official sidebar also renders. Its own copies
       // carry one hard-coded <clipPath id> each, and a duplicate id resolves to the copy
       // inside the hidden sidebar, which blanks this bar's glyph at wide frame widths.
@@ -121,6 +147,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
       const settingsIcon = () => react.createElement('svg', { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true },
         ...gearPaths.map(d => react.createElement('path', { d, fill: 'currentColor', key: d.slice(0, 12) })));
       const localIcons: Record<string, unknown> = { VscodeHistory: historyIcon, VscodeSettings: settingsIcon };
+
       const refreshTimes = (): void => {
         if (menu.hidden) return;
         const now = Date.now();
@@ -129,22 +156,34 @@ global.__ModuleLoader__.load({ id, factory: require => {
           if (time.textContent !== label) time.textContent = label;
         }
       };
+
       button('history', 'VscodeHistory', () => { menu.hidden = !menu.hidden; refreshTimes(); });
       button('fresh', 'IconNewChatOutline16', config.editorTab ? () => bridge.post({ kind: 'new-editor' }) : fresh);
       button('settings', 'VscodeSettings', () => bridge.post({ kind: 'settings' }));
+
       const update = (): void => {
         const state = ctx.sessions.list.getSnapshot();
-        const selected = selecting ? undefined : state.current;
+
+        // Current backends keep the selection outside the list, so the session the
+        // main view retains is the current one; older backends still publish `current`.
+        const selected = selecting ? undefined : state.current
+          ?? Object.values(state.byId).find(session => (session.retainedBy?.mainView ?? 0) > 0)?.id;
         const changed = current !== selected; current = selected;
+
+        // While restoring, the tab's own session wins over the client's selection.
         const restoring = selecting && !creating && !config.fresh ? config.sessionId : undefined;
         const summary = state.byId[restoring ?? current ?? ''];
         const savedTitle = !config.fresh && (restoring || current === config.sessionId) ? config.sessionTitle : undefined;
         title.textContent = summary ? (summary.blank ? text.fresh : summary.displayTitle) : savedTitle ?? text.fresh;
         title.title = title.textContent;
         if (changed) renderChips();
+
+        // Tell the host which session this view shows, once per distinct value.
         const announcement = { kind: 'session', sessionId: current, title: title.textContent, blank: summary?.blank ?? true };
         const serialized = JSON.stringify(announcement);
         if (!selecting && (!config.editorTab || document.body.dataset.vscodeReady === 'true') && serialized !== announced) { announced = serialized; bridge.post(announcement); }
+
+        // Rebuild the history rows from this workspace's own session list.
         const workspaces = ctx.workspaces.list.getSnapshot();
         workspace = workspaces.items.find(item => item.workspaceId === workspace?.workspaceId) ?? workspace;
         menu.replaceChildren();
@@ -161,6 +200,8 @@ global.__ModuleLoader__.load({ id, factory: require => {
           item.append(label, time);
           item.setAttribute('aria-current', String(sessionId === current));
           item.onclick = () => { ctx.uiWorkspace.openSession(sessionId); menu.hidden = true; }; menu.append(item);
+
+          // Right-click stops the session's work and archives it.
           item.oncontextmenu = event => {
             event.preventDefault(); contextMenu.replaceChildren();
             const remove = document.createElement('button'); remove.textContent = text.deleteSession; remove.title = text.deleteDetail; remove.setAttribute('role', 'menuitem');
@@ -171,11 +212,14 @@ global.__ModuleLoader__.load({ id, factory: require => {
               void deleteSession(binding.session, () => ctx.uiWorkspace.archiveSession(sessionId)).then(() => { contextMenu.hidden = true; update(); }, error => { remove.disabled = false; bridge.post({ kind: 'error', error: String(error) }); });
             };
             contextMenu.append(remove); contextMenu.hidden = false;
+            // Keep the menu inside the frame even for a row near an edge.
             contextMenu.style.left = `${Math.max(8, Math.min(event.clientX, innerWidth - 200))}px`;
             contextMenu.style.top = `${Math.max(8, Math.min(event.clientY, innerHeight - 55))}px`; remove.focus();
           };
         }
         if (!menu.childElementCount) { const empty = document.createElement('p'); empty.textContent = text.empty; menu.append(empty); }
+
+        // The first ready state creates or restores this view's session.
         if (!initialized && state.phase === 'ready' && workspaces.phase === 'ready') {
           initialized = true;
           void (async () => {
@@ -183,6 +227,8 @@ global.__ModuleLoader__.load({ id, factory: require => {
             const target = await ctx.workspaces.create({ path: config.cwd });
             if (lifetime.signal.aborted) return;
             workspace = target;
+
+            // Reopen the remembered session when this workspace still owns it.
             if (!config.fresh && config.sessionId && target.sessionIds.includes(config.sessionId) && !ctx.workspaces.list.getSnapshot().archivedSessionIds.includes(config.sessionId)) ctx.uiWorkspace.openSession(config.sessionId);
             else {
               try {
@@ -198,23 +244,32 @@ global.__ModuleLoader__.load({ id, factory: require => {
           })().catch(error => bridge.post({ kind: 'client-failure', error: String(error) }));
         }
       };
+
       bridge.handle = packet => {
         if (packet.kind === 'new-session') fresh();
+
+        // A new editor selection replaces the chips of every session.
         if (packet.kind === 'editor-context' && packet.context && config.mode === 'chat') {
           for (const owned of contexts.values()) owned.clear();
           currentChips().set(packet.context.key, packet.context); renderChips();
         }
       };
+
+      // The official client renders its own DOM, so a few nodes are adapted after
+      // each mutation: the theme label, the composer seat, and the settings dialog.
       const adapt = (): void => {
         const system = document.querySelector('[data-slot="sidebar.settings"] [class*="_cubeRow"] button:last-child');
         const label = system?.lastChild;
         if (label?.nodeType === Node.TEXT_NODE && label.textContent !== text.followTheme) label.textContent = text.followTheme;
+
         const seat = document.querySelector('[data-composer-seat]');
         if (seat) {
           const card = seat.querySelector('[data-composer-card]');
           if (card && chips.parentElement !== card) card.prepend(chips);
         }
+
         if (config.mode === 'settings') {
+          // Open the official settings dialog once, then report it as ready.
           const trigger = document.querySelector<HTMLButtonElement>('[data-slot="sidebar.settings"] button');
           if (trigger && !settingsOpened) { settingsOpened = true; trigger.click(); }
           const dialog = document.querySelector('[data-slot="sidebar.settings"] [role="dialog"]');
@@ -223,13 +278,17 @@ global.__ModuleLoader__.load({ id, factory: require => {
         }
       };
       const observer = new MutationObserver(adapt); observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+
+      // Dismiss the popups on an outside click or Escape.
       const outside = (event: PointerEvent): void => { if (!contextMenu.contains(event.target as Node)) contextMenu.hidden = true; if (!header.contains(event.target as Node)) menu.hidden = true; };
       const escape = (event: KeyboardEvent): void => { if (event.key === 'Escape') { menu.hidden = true; contextMenu.hidden = true; } };
       document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape);
+
       const unsubSessions = ctx.sessions.list.subscribe(update); const unsubWorkspaces = ctx.workspaces.list.subscribe(update);
       const unsubLocale = ctx.locale.subscribe(() => { text = copy(ctx.locale.getSnapshot().active); for (const render of renderButtons) render(); update(); renderChips(); adapt(); });
       update(); renderChips(); adapt();
       const clock = setInterval(refreshTimes, 1000);
+
       return () => {
         clearInterval(clock);
         stopQueueDisplay();
