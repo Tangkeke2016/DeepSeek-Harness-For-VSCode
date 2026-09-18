@@ -282,7 +282,7 @@ class Application implements vscode.Disposable {
   }
 
   private reset(view: View): void {
-    view.generation++; clearTimeout(view.timer); view.timer = undefined; view.ready = false; view.loading = undefined;
+    view.epoch = undefined; view.generation++; clearTimeout(view.timer); view.timer = undefined; view.ready = false; view.loading = undefined;
     view.delivery?.dispose(); view.delivery = undefined;
     const relay = view.relay; const connection = view.connection; view.relay = undefined; view.connection = undefined;
     void (relay ? relay.dispose() : connection?.dispose())?.catch(error => this.output.appendLine(redact(String(error))));

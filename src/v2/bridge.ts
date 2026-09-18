@@ -4,6 +4,7 @@ import type { ViewConfig } from './html.ts';
 import { bridgePluginResources } from './plugin-resources.ts';
 import { followEditorTheme } from './theme.ts';
 import { MessageAssembly } from './assembly.ts';
+import { visibleDeadline } from './deadline.ts';
 
 window.addEventListener('unload', followEditorTheme(), { once: true });
 
@@ -51,13 +52,13 @@ function decode(value: string): Uint8Array<ArrayBuffer> {
 function call(kind: string, payload: Record<string, unknown>, signal?: AbortSignal): Promise<Packet> {
   const id = crypto.randomUUID();
   return new Promise((resolve, reject) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const finish = (packet: Packet): void => { clearTimeout(timer); signal?.removeEventListener('abort', abort); resolve(packet); };
-    const failed = (error: Error): void => { clearTimeout(timer); signal?.removeEventListener('abort', abort); reject(error); };
+    let cancelDeadline: (() => void) | undefined;
+    const finish = (packet: Packet): void => { cancelDeadline?.(); signal?.removeEventListener('abort', abort); resolve(packet); };
+    const failed = (error: Error): void => { cancelDeadline?.(); signal?.removeEventListener('abort', abort); reject(error); };
     const abort = (): void => { requests.delete(id); api.postMessage({ kind: 'abort', id }); failed(new DOMException('Aborted', 'AbortError')); };
     if (signal?.aborted) { failed(new DOMException('Aborted', 'AbortError')); return; }
     requests.set(id, { resolve: finish, reject: failed });
-    if (kind === 'fetch' || kind === 'bundle') timer = setTimeout(() => {
+    if (kind === 'fetch' || kind === 'bundle') cancelDeadline = visibleDeadline(() => {
       requests.delete(id); api.postMessage({ kind: 'abort', id });
       const message = `${kind} response timed out`; failed(new Error(message)); fault(message);
     }, timeoutMs);
@@ -96,7 +97,7 @@ async function* openStream(endpoint: string, payload: unknown, signal: AbortSign
   signal.throwIfAborted();
   const id = crypto.randomUUID();
   const queue: StreamQueue = { values: [], closed: false };
-  const opening = endpoint === 'session/follow' ? setTimeout(() => {
+  const opening = endpoint === 'session/follow' ? visibleDeadline(() => {
     queue.error = new Error('History opening snapshot timed out'); queue.closed = true; queue.wake?.();
     api.postMessage({ kind: 'stream-cancel', id }); fault(queue.error.message);
   }, timeoutMs) : undefined;
@@ -107,11 +108,11 @@ async function* openStream(endpoint: string, payload: unknown, signal: AbortSign
   try {
     while (!queue.closed || queue.values.length) {
       if (queue.error) throw queue.error;
-      if (queue.values.length) { clearTimeout(opening); yield queue.values.shift(); }
+      if (queue.values.length) { opening?.(); yield queue.values.shift(); }
       else await new Promise<void>(resolve => { queue.wake = resolve; });
     }
     if (queue.error) throw queue.error;
-  } finally { clearTimeout(opening); signal.removeEventListener('abort', abort); streams.delete(id); api.postMessage({ kind: 'stream-cancel', id }); }
+  } finally { opening?.(); signal.removeEventListener('abort', abort); streams.delete(id); api.postMessage({ kind: 'stream-cancel', id }); }
 }
 function receive(packet: Packet): void {
   if (!packet || typeof packet.kind !== 'string') return;
