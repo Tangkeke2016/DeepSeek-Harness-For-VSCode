@@ -290,7 +290,8 @@ class Application implements vscode.Disposable {
   }
 
   /**
-   * Name one editor view's tab after the view's session.
+   * Name one editor view's tab: a chat tab follows its session, while a
+   * settings panel keeps the localized surface name it was created with.
    *
    * `fit` sizing grows a tab with its label, so that mode alone needs the label
    * bounded; `fixed` and `shrink` ellipsize the label themselves and keep the
@@ -299,6 +300,13 @@ class Application implements vscode.Disposable {
    */
   private applyTitle(view: View): void {
     if (!view.editorTab) return;
+
+    // A settings panel shows no session, so naming it after one would replace
+    // its localized title with the product name.
+    if (view.mode === 'settings') {
+      (view.surface as vscode.WebviewPanel).title = copy(vscode.env.language).settings;
+      return;
+    }
 
     const title = view.title;
     const sizing = title === undefined ? 'fit' : vscode.workspace.getConfiguration('workbench.editor').get<string>('tabSizing', 'fit');
