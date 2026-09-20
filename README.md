@@ -14,13 +14,13 @@
 
 ## 安装与启动
 
-1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.9.vsix`。
+1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.10.vsix`。
 2. 在 VS Code 扩展面板中选择“从 VSIX 安装…”，安装后按提示重新加载窗口。
 3. 打开并信任项目工作区，点击编辑器右上角鲸鱼按钮，或在命令面板搜索 `DeepSeek Harness` 打开聊天。
 4. 首次启动缺少 DSH 路径时，点击“一键安装官方 DSH”执行 `npx @deepseek-ai/dsh web` 并自动保存安装路径，或点击“选择 DSH 目录”“选择 bin 文件”。有效选择会保存并自动尝试加载；无效选择会提示并重新打开选择器，取消即可停止。
 5. 在官方设置页面配置模型及凭据，开始会话。
 
-工作目录使用当前 VS Code 工作区，无需另行选择。插件自动启动或复用共享后台，**无需手动运行 `pnpm dsh web`**。
+工作目录使用当前 VS Code 工作区，无需另行选择。每个工作区各自拥有独立后台，插件按需自动启动或复用它，**无需手动运行 `pnpm dsh web`**。
 
 ## DSH 路径
 
@@ -33,9 +33,9 @@
 
 ## 停止后台与安装 DSH 插件
 
-**后台一旦启动，不会随聊天页关闭、VS Code 退出或 SSH 断开而自动关闭。** 需要停止时，在命令面板搜索 `Shared Backend`，执行“停止当前用户的共享后台”。该命令不停止手动连接的外部后台。
+**后台一旦启动，不会随聊天页关闭、VS Code 退出或 SSH 断开而自动关闭。** 需要停止时，在命令面板搜索 `DeepSeek Harness`：执行“关闭当前工作区后台”只停止当前工作区的后台，执行“关闭所有后台”停止本机全部由插件启动的后台。两条命令都不停止手动连接的外部后台。
 
-更换 DSH 路径、数据目录或安装 DSH 插件后，等待当前任务结束，停止共享后台再打开聊天。额外 DSH 插件应安装到同一 `DSH_HOME` 的 `web` profile，例如在 DSH 项目目录执行：
+切换工作区文件夹时，上一个工作区的后台只在它确实空闲（没有运行中的任务、排队消息和定时任务）时自动关闭，否则保留。更换 DSH 路径、数据目录或安装 DSH 插件后，等待当前任务结束，关闭对应后台再打开聊天。额外 DSH 插件应安装到同一 `DSH_HOME` 的 `web` profile，例如在 DSH 项目目录执行：
 
 ```sh
 pnpm dsh plugin --profile web add <插件包名>

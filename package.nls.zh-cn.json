@@ -7,12 +7,13 @@
   "settings": "DeepSeek Harness：设置",
   "open": "DeepSeek Harness：打开聊天",
   "connect": "DeepSeek Harness：连接已运行的后台",
-  "stop": "DeepSeek Harness：停止当前用户的共享后台",
+  "stop": "DeepSeek Harness：关闭当前工作区后台",
   "harnessPath": "Harness 安装目录：包含 apps/cli/lib/bin.js 的仓库，或已安装的 @deepseek-ai/dsh 包。留空时从工作区或全局 npm 安装中查找，Node.js 自动定位。",
-  "home": "Harness 数据目录。留空使用官方默认目录。修改后需显式停止共享后台再打开聊天。",
+  "home": "Harness 数据目录。留空使用官方默认目录。修改后需显式停止该工作区后台再打开聊天。",
   "timeout": "等待后台输出启动 URL 的最长秒数。",
   "settingsPath": "自定义或外接后台的设置文件绝对路径（可选）。",
   "binPath": "官方 DSH bin.js 文件的绝对路径，优先于 harnessPath。请在运行插件的主机上设置。",
   "queueRevealDelay": "消息队列持续显示前的等待毫秒数，避免短暂排队的消息在输入框上方闪现。设为 0 立即显示，修改后重新打开视图生效。",
-  "installTimeout": "等待 npx 安装并验证官方 DSH Web 启动的最长秒数，也可在进度通知中取消安装。"
+  "installTimeout": "等待 npx 安装并验证官方 DSH Web 启动的最长秒数，也可在进度通知中取消安装。",
+  "stopAll": "DeepSeek Harness：关闭所有后台"
 }

@@ -4,7 +4,7 @@
 
 ## 中文使用指南
 
-在当前 VS Code 工作区中使用官方 DeepSeek Harness Web 界面，支持独立聊天标签页、历史会话和官方设置。本扩展独立维护，可一键安装完整的官方 DSH，也可选择已有安装。
+在当前 VS Code 工作区中使用官方 DeepSeek Harness Web 界面，支持独立聊天标签页、可搜索的历史会话和官方设置，每个工作区各自运行一个后台。本扩展独立维护，可一键安装完整的官方 DSH，也可选择已有安装。
 
 ### 开始使用
 
@@ -24,17 +24,19 @@
 
 ### 后台管理
 
-**后台一旦启动，不会随聊天页关闭、VS Code 退出或 SSH 断开而自动关闭。** 需要停止时，在命令面板搜索 `Shared Backend`，执行“停止当前用户的共享后台”。该命令不停止手动连接的外部后台。
+每个工作区各自拥有一个后台，同一工作区的多个窗口共用它。**后台一旦启动，不会随聊天页关闭、VS Code 退出或 SSH 断开而自动关闭。** 需要停止时，在命令面板搜索 `DeepSeek Harness`：执行“关闭当前工作区后台”只停止当前工作区的后台，执行“关闭所有后台”停止本机全部由插件启动的后台。两条命令都不停止手动连接的外部后台。
+
+切换工作区文件夹时，上一个工作区的后台只在确实空闲（没有运行中的任务、排队消息和定时任务）时自动关闭，否则保留。从旧版本升级后若提示旧版全用户共享后台仍在运行，等待其中的任务结束，执行“关闭所有后台”再重试。
 
 ### 遇到问题
 
-新建会话失败时仍可访问历史。若更新 DSH 后提示预设依赖无法解析，可点击“重启后台并重试”；该操作会停止共享后台的所有任务。
+新建会话失败时仍可访问历史。若更新 DSH 后提示预设依赖无法解析，可点击“重启后台并重试”；该操作会停止该工作区后台的所有任务。
 
 请前往 [项目 Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) 提交复现步骤、系统、VS Code/DSH 版本及 Remote SSH 使用情况。日志位于“输出 → DeepSeek Harness”，分享前移除凭据和私人信息。扩展仅在点击一键安装后下载官方 DSH，不会自动升级已有安装；第三方插件兼容性取决于对应版本。
 
 ## English guide
 
-Use the official DeepSeek Harness Web interface in the current VS Code workspace, with independent chat tabs, session history, and official settings. This independently maintained extension can install the complete official DSH distribution or use an existing installation.
+Use the official DeepSeek Harness Web interface in the current VS Code workspace, with independent chat tabs, searchable session history, and official settings, where every workspace runs its own backend. This independently maintained extension can install the complete official DSH distribution or use an existing installation.
 
 ### Get started
 
@@ -54,11 +56,13 @@ Keep the complete DSH installation and Web resources; copying `bin.js` alone is 
 
 ### Backend management
 
-**Once started, the backend does not automatically stop when chat closes, VS Code exits, or SSH disconnects.** To stop it, search the Command Palette for `Shared Backend` and run **Stop Current User's Shared Backend**. This command does not stop manually attached external backends.
+Each workspace has its own backend, shared by every window that opens that workspace. **Once started, the backend does not automatically stop when chat closes, VS Code exits, or SSH disconnects.** To stop it, search the Command Palette for `DeepSeek Harness`: **Stop Current Workspace Backend** stops only the current workspace's backend, and **Stop All Backends** stops every backend this extension started on the machine. Neither command stops a manually attached external backend.
+
+When you switch workspace folders, the previous workspace's backend is stopped only when it is genuinely idle: no running tasks, queued messages, or scheduled work. After upgrading from an older version, if the extension reports that an older user-wide backend is still running, wait for its tasks to finish, run **Stop All Backends**, and retry.
 
 ### Support
 
-History stays available if creating a session fails. If preset dependencies cannot be resolved after updating DSH, choose **Restart backend and retry**; this stops all tasks on the shared backend.
+History stays available if creating a session fails. If preset dependencies cannot be resolved after updating DSH, choose **Restart backend and retry**; this stops all tasks on that workspace's backend.
 
 Report problems at [GitHub Issues](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/issues) with reproduction steps, OS, VS Code/DSH versions, and Remote SSH usage. Logs appear under **Output → DeepSeek Harness**; remove credentials and private information before sharing. The extension downloads official DSH only when you choose one-click installation and does not automatically upgrade existing installations; third-party plugin compatibility depends on the versions involved.
 

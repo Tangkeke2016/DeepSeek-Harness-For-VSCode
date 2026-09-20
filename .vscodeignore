@@ -6,6 +6,7 @@
 !THIRD_PARTY_NOTICES.md
 !dist/extension.cjs
 !dist/supervisor.cjs
+!dist/idle-guard.mjs
 !dist/bridge.js
 !dist/adapter.js
 !dist/*.LEGAL.txt

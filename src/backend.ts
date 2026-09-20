@@ -6,6 +6,7 @@ import { findCli, findNode } from './runtime.ts';
 /** Explicit settings for an owned official backend. */
 export interface BackendOptions {
   cwd: string; harnessPath: string; binPath?: string; home: string; startupTimeoutSeconds: number;
+  patch?: string;
 }
 
 /** One child launched through dsh; attached external backends never enter this class. */
@@ -28,7 +29,9 @@ export class Backend {
 
     // The official Web profile binds an ephemeral loopback port and prints its
     // authenticated URL; `--no-open` keeps the server from launching a browser.
-    const child = spawn(node.command, [cli, '--profile', 'web', '--host', '127.0.0.1', '--port', '0', '--no-open'], {
+    const child = spawn(node.command, [cli, '--profile', 'web',
+      ...(options.patch ? ['--patch', options.patch] : []),
+      '--host', '127.0.0.1', '--port', '0', '--no-open'], {
       cwd: options.cwd, env: { ...process.env, ...(options.home ? { DSH_HOME: options.home } : {}) },
       shell: false, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
     });

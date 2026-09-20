@@ -2,8 +2,9 @@
 import type { ViewConfig } from './html.ts';
 import type { EditorContext } from './messages.ts';
 import { copy } from './locale.ts';
-import { historyTime, recentSessions } from './history.ts';
+import { historyTime, recentSessions, filterSessions } from './history.ts';
 import { settleQueueDisplay } from './queue-display.ts';
+import { autoHideScrollbars } from './scrollbars.ts';
 import { deleteSession, type DeletableSession } from './delete-session.ts';
 
 interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
@@ -38,8 +39,8 @@ global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.9', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.9', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.10', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.10', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
@@ -66,9 +67,19 @@ global.__ModuleLoader__.load({ id, factory: require => {
       syncTheme(ctx.theme.getTheme());
 
       const stopQueueDisplay = settleQueueDisplay(config.queueRevealDelayMs ?? 250);
+      const stopScrollbars = autoHideScrollbars();
 
       // History popup, plus the per-row context menu it opens.
       const menu = document.createElement('div'); menu.id = 'vscode-history'; menu.hidden = true; menu.setAttribute('role', 'menu'); header.append(menu);
+      const search = document.createElement('input');
+      search.type = 'search';
+      search.id = 'vscode-history-search';
+      search.autocomplete = 'off';
+      const historyRows = document.createElement('div');
+      historyRows.id = 'vscode-history-rows';
+      historyRows.setAttribute('role', 'menu');
+      menu.setAttribute('role', 'region');
+      menu.append(search, historyRows);
       const contextMenu = document.createElement('div'); contextMenu.id = 'vscode-history-context'; contextMenu.hidden = true; contextMenu.setAttribute('role', 'menu'); header.append(contextMenu);
 
       // One chip strip, moved into the official composer seat once it mounts.
@@ -157,7 +168,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
         }
       };
 
-      button('history', 'VscodeHistory', () => { menu.hidden = !menu.hidden; refreshTimes(); });
+      button('history', 'VscodeHistory', () => { menu.hidden = !menu.hidden; refreshTimes(); if (!menu.hidden) search.focus(); });
       button('fresh', 'IconNewChatOutline16', config.editorTab ? () => bridge.post({ kind: 'new-editor' }) : fresh);
       button('settings', 'VscodeSettings', () => bridge.post({ kind: 'settings' }));
 
@@ -186,10 +197,12 @@ global.__ModuleLoader__.load({ id, factory: require => {
         // Rebuild the history rows from this workspace's own session list.
         const workspaces = ctx.workspaces.list.getSnapshot();
         workspace = workspaces.items.find(item => item.workspaceId === workspace?.workspaceId) ?? workspace;
-        menu.replaceChildren();
+        historyRows.replaceChildren();
+        search.placeholder = text.searchHistory;
+        search.setAttribute('aria-label', text.searchHistory);
         const ids = workspace?.sessionIds ?? [];
         const rows = ids.map(id => state.byId[id]).filter((row): row is Summary => !!row && !workspaces.archivedSessionIds.includes(row.id) && (!row.blank || row.id === current));
-        for (const row of recentSessions(rows)) {
+        for (const row of filterSessions(recentSessions(rows), search.value, text.fresh)) {
           const sessionId = row.id;
           const item = document.createElement('button'); item.setAttribute('role', 'menuitem');
           const label = document.createElement('span'); label.className = 'vscode-history-label';
@@ -199,7 +212,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
           time.textContent = historyTime(row.updatedAt, Date.now(), ctx.locale.getSnapshot().active);
           item.append(label, time);
           item.setAttribute('aria-current', String(sessionId === current));
-          item.onclick = () => { ctx.uiWorkspace.openSession(sessionId); menu.hidden = true; }; menu.append(item);
+          item.onclick = () => { ctx.uiWorkspace.openSession(sessionId); menu.hidden = true; }; historyRows.append(item);
 
           // Right-click stops the session's work and archives it.
           item.oncontextmenu = event => {
@@ -217,7 +230,11 @@ global.__ModuleLoader__.load({ id, factory: require => {
             contextMenu.style.top = `${Math.max(8, Math.min(event.clientY, innerHeight - 55))}px`; remove.focus();
           };
         }
-        if (!menu.childElementCount) { const empty = document.createElement('p'); empty.textContent = text.empty; menu.append(empty); }
+        if (!historyRows.childElementCount) {
+          const empty = document.createElement('p');
+          empty.textContent = search.value.trim() ? text.noMatches : text.empty;
+          historyRows.append(empty);
+        }
 
         // The first ready state creates or restores this view's session.
         if (!initialized && state.phase === 'ready' && workspaces.phase === 'ready') {
@@ -284,6 +301,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
       const escape = (event: KeyboardEvent): void => { if (event.key === 'Escape') { menu.hidden = true; contextMenu.hidden = true; } };
       document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape);
 
+      search.oninput = () => { contextMenu.hidden = true; update(); };
       const unsubSessions = ctx.sessions.list.subscribe(update); const unsubWorkspaces = ctx.workspaces.list.subscribe(update);
       const unsubLocale = ctx.locale.subscribe(() => { text = copy(ctx.locale.getSnapshot().active); for (const render of renderButtons) render(); update(); renderChips(); adapt(); });
       update(); renderChips(); adapt();
@@ -292,6 +310,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
       return () => {
         clearInterval(clock);
         stopQueueDisplay();
+        stopScrollbars();
         stopTheme(); document.body.removeAttribute('data-vscode-theme-background');
         lifetime.abort(); unsubSessions(); unsubWorkspaces(); unsubLocale(); observer.disconnect();
         document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape);

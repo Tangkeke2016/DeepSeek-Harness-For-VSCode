@@ -7,12 +7,13 @@
   "settings": "DeepSeek Harness: Settings",
   "open": "DeepSeek Harness: Open Chat",
   "connect": "DeepSeek Harness: Connect to Running Backend",
-  "stop": "DeepSeek Harness: Stop Current User's Shared Backend",
+  "stop": "DeepSeek Harness: Stop Current Workspace Backend",
   "harnessPath": "Harness installation directory: a checkout with apps/cli/lib/bin.js, or an installed @deepseek-ai/dsh package. Empty discovers it from the workspace or a global npm installation. Node.js is located automatically.",
-  "home": "Harness data directory. Empty uses the official default. Explicitly stop the shared backend before applying changes.",
+  "home": "Harness data directory. Empty uses the official default. Explicitly stop the workspace backend before applying changes.",
   "timeout": "Maximum seconds to wait for the backend startup URL.",
   "settingsPath": "Optional absolute settings document path for a custom or attached backend.",
   "binPath": "Absolute path to the official DSH bin.js. Takes precedence over harnessPath. Set on the machine running the extension.",
   "queueRevealDelay": "Delay in milliseconds before showing a newly opened message queue. Briefly queued messages do not flash above the input. Zero shows the queue immediately. Reopen the view after changing.",
-  "installTimeout": "Maximum seconds for npx to install and verify the official DSH Web startup. Installation can also be cancelled from the progress notification."
+  "installTimeout": "Maximum seconds for npx to install and verify the official DSH Web startup. Installation can also be cancelled from the progress notification.",
+  "stopAll": "DeepSeek Harness: Stop All Backends"
 }

@@ -5,7 +5,7 @@ import { join, relative, isAbsolute, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { access } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { SharedBackend } from './shared-backend.ts';
+import { WorkspaceBackends } from './workspace-backends.ts';
 import { Transport } from './transport.ts';
 import { expandHome, findCli, findNode } from './runtime.ts';
 import { startupCopy, startupHtml, type StartupState } from './startup.ts';
@@ -36,6 +36,7 @@ interface View {
   epoch?: string;
   relay?: WebRelay;
   connection?: Transport;
+  release?: () => Promise<void>;
   delivery?: MessageDelivery;
   timer?: ReturnType<typeof setTimeout>;
   loading?: Promise<void>;
@@ -62,9 +63,9 @@ export function activate(context: vscode.ExtensionContext): void {
 export async function deactivate(): Promise<void> { await app?.shutdown(); app = undefined; }
 
 class Application implements vscode.Disposable {
-  private backend?: SharedBackend;
+  private readonly backends: WorkspaceBackends;
   private recovering = false;
-  private launch?: Promise<string>;
+  private readonly launches = new Map<string, Promise<string>>();
   private sidebar?: View;
   private settings?: View;
   private readonly views = new Set<View>();
@@ -73,20 +74,26 @@ class Application implements vscode.Disposable {
   private lastEditor = vscode.window.activeTextEditor;
   private pendingFresh = false;
   private stopping?: Promise<void>;
-  private assets?: ClientAssets;
-  private settingsDocument?: string;
+  private readonly assets = new Map<string, ClientAssets>();
   private attachedUrl?: string;
   private installation?: { controller: AbortController; done: Promise<void> };
   private windowFocused = vscode.window.state.focused;
 
   constructor(private readonly context: vscode.ExtensionContext) {
+    this.backends = new WorkspaceBackends(
+      join(homedir(), '.dsh-vscode'),
+      join(context.extensionPath, 'dist/supervisor.cjs'),
+      line => this.output.appendLine(line),
+      vscode.env.sessionId,
+    );
     this.subscriptions.push(this.output,
       // Panel serializers restore the editor and settings tabs VS Code reopens after a reload.
       ...(['deepseekHarness.editor', 'deepseekHarness.settings'] as const).map(kind => vscode.window.registerWebviewPanelSerializer(kind, {
         deserializeWebviewPanel: async (panel, state: unknown) => {
           const saved = state !== null && typeof state === 'object' && !Array.isArray(state) ? record(state) : {};
           panel.webview.options = { enableScripts: true };
-          if (kind === 'deepseekHarness.settings') this.settings = this.attach(panel, 'settings', false);
+          if (kind === 'deepseekHarness.settings') this.settings = this.attach(panel, 'settings', false,
+            typeof saved.cwd === 'string' && isAbsolute(saved.cwd) ? saved.cwd : this.workspace().uri.fsPath);
           else {
             // Restore the workspace and session the tab carried before the reload.
             const cwd = typeof saved.cwd === 'string' && isAbsolute(saved.cwd) ? saved.cwd : this.workspace().uri.fsPath;
@@ -113,14 +120,14 @@ class Application implements vscode.Disposable {
         if (view) { this.reset(view); void this.load(view); }
       }),
       vscode.commands.registerCommand('deepseekHarness.settings', () => this.openSettings()),
-      vscode.commands.registerCommand('deepseekHarness.stop', () => this.shutdown(true)),
+      vscode.commands.registerCommand('deepseekHarness.stop', () => this.stopBackends(this.workspace().uri.fsPath)),
+      vscode.commands.registerCommand('deepseekHarness.stopAll', () => this.stopBackends()),
       vscode.commands.registerCommand('deepseekHarness.connect', async () => {
         // Attaching to an external backend replaces any owned one for this session.
         const value = await vscode.window.showInputBox({ prompt: copy(vscode.env.language).connectPrompt, password: true, ignoreFocusOut: true });
         if (!value) return;
         await this.shutdown();
         this.attachedUrl = value;
-        this.launch = Promise.resolve(value);
         for (const view of this.views) void this.load(view);
         await this.open(false);
       }),
@@ -132,6 +139,16 @@ class Application implements vscode.Disposable {
       vscode.workspace.onDidChangeWorkspaceFolders(() => { if (this.sidebar) void this.load(this.sidebar); }),
       vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('workbench.editor.tabSizing')) for (const view of this.views) this.applyTitle(view); }),
     );
+    void this.restoreBackend();
+  }
+
+  /** Reconnect a discovered workspace backend without starting one on every VS Code launch. */
+  private async restoreBackend(): Promise<void> {
+    if (!vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return;
+    try {
+      const cwd = this.workspace().uri.fsPath;
+      if (await this.backends.exists(cwd)) await this.backendUrl(cwd);
+    } catch (error) { this.output.appendLine(redact(String(error))); }
   }
 
   /** @returns The workspace folder every non-editor view runs in. */
@@ -163,7 +180,10 @@ class Application implements vscode.Disposable {
   }
 
   /** Show the reusable settings panel, loading it when it has no connection yet. */
-  private openSettings(): void {
+  private openSettings(cwd = this.workspace().uri.fsPath): void {
+    if (this.settings && this.settings.cwd !== cwd) {
+      (this.settings.surface as vscode.WebviewPanel).dispose();
+    }
     if (this.settings) {
       (this.settings.surface as vscode.WebviewPanel).reveal();
       if (!this.settings.relay) void this.load(this.settings);
@@ -171,7 +191,7 @@ class Application implements vscode.Disposable {
     }
 
     const panel = vscode.window.createWebviewPanel('deepseekHarness.settings', copy(vscode.env.language).settings, vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
-    this.settings = this.attach(panel, 'settings', false);
+    this.settings = this.attach(panel, 'settings', false, cwd);
   }
 
   /** @param cwd - Workspace the new editor tab is bound to. */
@@ -271,21 +291,23 @@ class Application implements vscode.Disposable {
     if (this.stopping) await this.stopping;
     if (this.attachedUrl) return this.attachedUrl;
 
-    if (!this.launch) {
+    let launch = this.launches.get(cwd);
+    if (!launch) {
       const settings = vscode.workspace.getConfiguration('deepseekHarness');
-      this.backend = new SharedBackend(join(homedir(), '.dsh-vscode'), join(this.context.extensionPath, 'dist/supervisor.cjs'), line => this.output.appendLine(line));
-
-      // The data directory resolves against the workspace, so one window per
-      // workspace keeps its own sessions unless `home` overrides it.
       const home = settings.get<string>('home', '') || process.env.DSH_HOME?.trim() || join(homedir(), '.dsh');
-      const expanded = expandHome(home);
-      this.settingsDocument = join(resolve(cwd, expanded), 'settings.yaml');
-      this.launch = this.backend.start({ cwd, harnessPath: settings.get('harnessPath', ''), binPath: settings.get('binPath', ''), home: resolve(cwd, expanded),
-        startupTimeoutSeconds: settings.get('startupTimeoutSeconds', 90) });
-      // A failed launch is retried by the next view instead of caching the rejection.
-      this.launch.catch(() => { this.launch = undefined; });
+      launch = this.backends.connect({
+        cwd, harnessPath: settings.get('harnessPath', ''), binPath: settings.get('binPath', ''),
+        home: resolve(cwd, expandHome(home)),
+        startupTimeoutSeconds: settings.get('startupTimeoutSeconds', 90),
+      });
+      this.launches.set(cwd, launch);
+      const pending = launch;
+      const clear = (): void => {
+        if (this.launches.get(cwd) === pending) this.launches.delete(cwd);
+      };
+      void launch.then(clear, clear);
     }
-    return this.launch;
+    return launch;
   }
 
   /** @param view - The view to load. @returns Completion of the in-flight load for that view. */
@@ -313,9 +335,10 @@ class Application implements vscode.Disposable {
     const active = (): boolean => !view.disposed && generation === view.generation;
     view.ready = false;
 
-    const old = view.relay; const oldConnection = view.connection;
-    view.relay = undefined; view.connection = undefined;
-    await (old ? old.dispose() : oldConnection?.dispose());
+    const old = view.relay; const oldConnection = view.connection; const oldRelease = view.release;
+    view.relay = undefined; view.connection = undefined; view.release = undefined;
+    try { await (old ? old.dispose() : oldConnection?.dispose()); }
+    finally { await oldRelease?.(); }
     if (!active()) return;
 
     const text = copy(vscode.env.language);
@@ -328,11 +351,16 @@ class Application implements vscode.Disposable {
     let transport: Transport | undefined;
     try {
       const cwd = view.editorTab ? view.cwd : this.workspace().uri.fsPath;
+      if (view.cwd && view.cwd !== cwd) {
+        view.sessionId = undefined;
+        view.title = undefined;
+        view.fresh = false;
+      }
       view.cwd = cwd;
 
       // Check the local prerequisites once, before any backend is started, so a
       // missing Node.js or CLI becomes the setup page instead of a launch error.
-      if (!this.attachedUrl && !this.launch) {
+      if (!this.attachedUrl && !this.launches.has(cwd)) {
         const settings = vscode.workspace.getConfiguration('deepseekHarness');
         const failures: StartupState = {};
         try { await findNode(); } catch (error) { failures.nodeError = redact(String(error)); this.output.appendLine(failures.nodeError); }
@@ -344,12 +372,28 @@ class Application implements vscode.Disposable {
       const url = await this.backendUrl(cwd);
       if (!active()) return;
       phase('backend ready');
+      if (!this.attachedUrl) {
+        const release = await this.backends.lease(cwd, stopped => {
+          if (!active()) return;
+          this.launches.delete(cwd);
+          void this.backends.invalidate(cwd).catch(error => this.output.appendLine(redact(String(error))));
+          if (stopped) {
+            view.reconnectPending = false;
+            view.reconnectAvailable = false;
+            void this.reset(view);
+            view.surface.webview.html = this.status(copy(vscode.env.language).stopped, true);
+          } else this.failed(view, new Error(copy(vscode.env.language).stopped));
+        });
+        if (!active()) { await release(); return; }
+        view.release = release;
+      }
 
       // Losing the authenticated connection invalidates cached assets too.
       transport = new Transport(error => {
         if (!active()) return;
-        this.launch = undefined;
-        this.assets = undefined;
+        this.launches.delete(cwd);
+        this.assets.delete(url);
+        void this.backends.invalidate(cwd).catch(error => this.output.appendLine(redact(String(error))));
         this.failed(view, error);
       });
       view.connection = transport;
@@ -357,7 +401,8 @@ class Application implements vscode.Disposable {
       if (!active()) { await transport.dispose(); return; }
 
       const maxBytes = vscode.workspace.getConfiguration('deepseekHarness').get('maxTransferMegabytes', 64) * 1024 * 1024;
-      const assets = this.assets ??= new ClientAssets(maxBytes);
+      const assets = this.assets.get(url) ?? new ClientAssets(maxBytes);
+      this.assets.set(url, assets);
       const delivery = new MessageDelivery(value => view.surface.webview.postMessage(value), error => { if (active()) this.failed(view, error); }, maxBytes * 4, timeout);
       view.delivery = delivery;
       delivery.setVisible(view.visible);
@@ -396,7 +441,7 @@ class Application implements vscode.Disposable {
   }
 
   /** @param view - The view whose connection must be dropped without touching the backend. */
-  private reset(view: View): void {
+  private reset(view: View): Promise<void> {
     // Bumping the generation invalidates every callback still in flight.
     view.epoch = undefined;
     view.generation++;
@@ -407,13 +452,17 @@ class Application implements vscode.Disposable {
     view.delivery?.dispose();
     view.delivery = undefined;
 
-    const relay = view.relay; const connection = view.connection;
-    view.relay = undefined; view.connection = undefined;
-    void (relay ? relay.dispose() : connection?.dispose())?.catch(error => this.output.appendLine(redact(String(error))));
+    const relay = view.relay; const connection = view.connection; const release = view.release;
+    view.relay = undefined; view.connection = undefined; view.release = undefined;
+    return (async () => {
+      try { await (relay ? relay.dispose() : connection?.dispose()); }
+      finally { await release?.(); }
+    })().catch(error => this.output.appendLine(redact(String(error))));
   }
 
   /** @param view - The view whose connection failed. @param error - The failure to show. */
   private failed(view: View, error: Error): void {
+    if (error.message === 'legacy-workspace-backend') error = new Error(copy(vscode.env.language).legacyBackend);
     this.reset(view);
     view.loadFailed = true;
     this.output.appendLine(redact(error.message));
@@ -536,15 +585,17 @@ class Application implements vscode.Disposable {
       case 'setup-install': await this.installRuntime(view); break;
       case 'retry': this.reset(view); await this.load(view); break;
       case 'client-failure': this.failed(view, new Error(String(message.error))); break;
-      case 'session-create-failed': await this.sessionCreateFailed(String(message.error)); break;
+      case 'session-create-failed': await this.sessionCreateFailed(String(message.error), view.cwd); break;
       case 'client-diagnostic': this.output.appendLine(`client: ${redact(String(message.error))}`); break;
-      case 'settings': this.openSettings(); break;
+      case 'settings': this.openSettings(view.cwd); break;
       case 'open-settings-document': {
         if (typeof message.id !== 'string') throw new Error('Invalid settings document request');
         try {
           // An unset path asks the user once; a missing file opens as a new document.
           const configured = vscode.workspace.getConfiguration('deepseekHarness').get<string>('settingsPath', '');
-          let path = configured || this.settingsDocument;
+          const home = vscode.workspace.getConfiguration('deepseekHarness').get<string>('home', '')
+            || process.env.DSH_HOME?.trim() || join(homedir(), '.dsh');
+          let path = configured || (!this.attachedUrl ? join(resolve(view.cwd, expandHome(home)), 'settings.yaml') : undefined);
           if (!path) {
             const selected = await vscode.window.showOpenDialog({ canSelectMany: false, canSelectFolders: false, filters: { 'YAML / JSON': ['yaml', 'yml', 'json'] } });
             path = selected?.[0]?.fsPath;
@@ -631,22 +682,22 @@ class Application implements vscode.Disposable {
   }
 
   /** A preset failure leaves the view usable; only an explicit action restarts the owned shared backend. */
-  private async sessionCreateFailed(error: string): Promise<void> {
+  private async sessionCreateFailed(error: string, cwd: string): Promise<void> {
     // Only an owned backend can be restarted, and only for a resolvable preset failure.
     if (!error.includes('agent-preset/invalid') || !error.includes('cannot be resolved') || this.attachedUrl) { this.report(error); return; }
     if (this.recovering) return;
     this.recovering = true;
 
-    const launch = this.launch;
+    const launch = this.launches.get(cwd);
     try {
       const text = copy(vscode.env.language);
       this.output.appendLine(redact(error));
       const action = await vscode.window.showWarningMessage(`${redact(error)}\n${text.restartWarning}`, text.restartBackend);
 
       // The launcher may have changed while the warning was open; restart only that one.
-      if (action !== text.restartBackend || this.launch !== launch || this.attachedUrl || !this.views.size) return;
-      await this.shutdown(true);
-      await Promise.all([...this.views].filter(view => !view.disposed).map(view => this.load(view)));
+      if (action !== text.restartBackend || this.launches.get(cwd) !== launch || this.attachedUrl || !this.views.size) return;
+      await this.stopBackends(cwd);
+      await Promise.all([...this.views].filter(view => !view.disposed && view.cwd === cwd).map(view => this.load(view)));
     } finally { this.recovering = false; }
   }
 
@@ -657,37 +708,39 @@ class Application implements vscode.Disposable {
     void vscode.window.showErrorMessage(message);
   }
 
-  /** @param stopBackend - Whether the owned shared backend is stopped as well. */
-  async shutdown(stopBackend = false): Promise<void> {
-    if (this.stopping) return this.stopping;
-    if (this.installation) { this.installation.controller.abort(); await this.installation.done; }
-
-    // Stopping the shared backend is a separate object, because the attached one
-    // is owned by whoever launched it.
-    const backend = this.backend ?? (stopBackend && !this.attachedUrl ? new SharedBackend(join(homedir(), '.dsh-vscode'), join(this.context.extensionPath, 'dist/supervisor.cjs'), line => this.output.appendLine(line)) : undefined);
-    this.backend = undefined;
-    this.launch = undefined;
-    this.attachedUrl = undefined;
-    this.assets = undefined;
-    this.settingsDocument = undefined;
-
-    this.stopping = (async () => {
-      // Detach every view from the backend before it disappears.
-      await Promise.all([...this.views].map(async view => {
+  /** @param cwd - Workspace to stop, or omitted for all extension-owned backends on this host. */
+  private async stopBackends(cwd?: string): Promise<void> {
+    if (this.stopping) await this.stopping;
+    const targets = [...this.views].filter(view => cwd === undefined || view.cwd === cwd);
+    const stop = (async () => {
+      for (const view of targets) {
         view.reconnectPending = false;
         view.reconnectAvailable = false;
-        clearTimeout(view.timer);
-        view.delivery?.dispose();
-        view.generation++;
-        view.ready = false;
-        const relay = view.relay;
-        view.relay = undefined;
-        await relay?.dispose();
+        await this.reset(view);
         if (!view.disposed) view.surface.webview.html = this.status(copy(vscode.env.language).stopped, true);
-      }));
-      if (stopBackend) await backend?.dispose();
+      }
+      // Wait for already requested starts so stop cannot leave an unseen child behind.
+      const launches = [...this.launches].filter(([key]) => cwd === undefined || key === cwd);
+      await Promise.allSettled(launches.map(([, launch]) => launch));
+      for (const [key] of launches) this.launches.delete(key);
+      this.assets.clear();
+      await this.backends.stop(cwd);
     })();
-    try { await this.stopping; } finally { this.stopping = undefined; }
+    this.stopping = stop;
+    try { await stop; } finally { if (this.stopping === stop) this.stopping = undefined; }
+  }
+
+  /** Disconnect this extension host; every owned backend remains available. */
+  async shutdown(): Promise<void> {
+    if (this.installation) { this.installation.controller.abort(); await this.installation.done; }
+    for (const view of this.views) {
+      view.reconnectPending = false;
+      view.reconnectAvailable = false;
+      await this.reset(view);
+    }
+    this.launches.clear();
+    this.attachedUrl = undefined;
+    this.assets.clear();
   }
 
   dispose(): void {

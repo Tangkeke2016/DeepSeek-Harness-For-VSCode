@@ -67,3 +67,38 @@ body[data-dsh-vscode] [data-conversation-scroll] [class*='_slot']:has(> nav [cla
 
 #vscode-history .vscode-history-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
 #vscode-history time { flex: none; margin-left: auto; color: var(--vscode-descriptionForeground); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+/* Keep the filter stationary while history rows scroll. */
+#vscode-history { overflow: hidden; }
+#vscode-history-search {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 9px;
+  margin-bottom: 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 5px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font: inherit;
+}
+#vscode-history-search:focus { outline: 1px solid var(--vscode-focusBorder); }
+#vscode-history-rows { max-height: calc(65vh - 52px); overflow-y: auto; }
+
+/* Transparent thumbs preserve scroll geometry and the official turn navigator. */
+body[data-dsh-vscode] [data-conversation-scroll] {
+  scrollbar-color: transparent transparent;
+}
+body[data-dsh-vscode] [data-conversation-scroll]::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-active],
+body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-near] {
+  scrollbar-color: var(--vscode-scrollbarSlider-background, #8888) transparent;
+}
+body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-active]::-webkit-scrollbar-thumb,
+body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-near]::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, #8888);
+}
+body[data-dsh-vscode] [data-conversation-scroll]::-webkit-scrollbar-thumb:active {
+  background: var(--vscode-scrollbarSlider-activeBackground, #888b);
+}

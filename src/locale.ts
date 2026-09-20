@@ -1,8 +1,9 @@
 /** Copy owned by the VS Code surface; official client plugins retain their dictionaries. */
 
 const en = {
+  legacyBackend: 'An older user-wide backend is still running. Finish its tasks, run DeepSeek Harness: Stop All Backends, then retry to enable workspace backends.',
   restartBackend: 'Restart backend and retry',
-  restartWarning: 'The session preset could not load. If DSH was updated, restart the backend to load the new dependencies. Restarting stops all tasks on this shared backend.',
+  restartWarning: 'The session preset could not load. If DSH was updated, restart the backend to load the new dependencies. Restarting stops all tasks on this workspace backend.',
   second: 'sec',
   seconds: 'secs',
   minute: 'min',
@@ -17,6 +18,8 @@ const en = {
   deleteSession: 'Delete session',
   deleteDetail: 'Stop pending and active work, then archive the session.',
   followTheme: 'Follow VS Code',
+  searchHistory: 'Search sessions',
+  noMatches: 'No matching sessions',
   history: 'Session history',
   fresh: 'New session',
   settings: 'Settings',
@@ -32,8 +35,9 @@ const en = {
 };
 
 const zh: typeof en = {
+  legacyBackend: '旧版全用户共享后台仍在运行。请先完成其中的任务，执行“DeepSeek Harness：关闭所有后台”，再重试以启用工作区后台。',
   restartBackend: '重启后台并重试',
-  restartWarning: '会话预设未能加载。如果刚更新了 DSH，请重启后台加载新依赖。重启会停止此共享后台上的所有任务。',
+  restartWarning: '会话预设未能加载。如果刚更新了 DSH，请重启后台加载新依赖。重启会停止此工作区后台上的所有任务。',
   second: '秒',
   seconds: '秒',
   minute: '分钟',
@@ -48,6 +52,8 @@ const zh: typeof en = {
   deleteSession: '删除会话',
   deleteDetail: '停止待执行和正在运行的任务，然后归档会话。',
   followTheme: '跟随 VS Code',
+  searchHistory: '搜索会话',
+  noMatches: '没有匹配的会话',
   history: '历史会话',
   fresh: '新会话',
   settings: '设置',

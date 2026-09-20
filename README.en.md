@@ -14,13 +14,13 @@ For Remote SSH, install the extension on the remote host and prepare Node.js and
 
 ## Install and start
 
-1. Download `tangkeke-deepseek-harness-0.1.9.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
+1. Download `tangkeke-deepseek-harness-0.1.10.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
 2. Choose **Install from VSIX…** in the VS Code Extensions panel and reload when prompted.
 3. Open and trust a project workspace. Click the whale in the editor title bar, or search the Command Palette for `DeepSeek Harness` to open chat.
 4. If the DSH path is missing, choose **Install official DSH** to run `npx @deepseek-ai/dsh web` and save its installed path automatically, or choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
 5. Configure models and credentials in the official settings page and start a conversation.
 
-The working directory is the current VS Code workspace. The extension starts or reuses a shared backend automatically; **no manual `pnpm dsh web` command is needed**.
+The working directory is the current VS Code workspace. Each workspace owns its own backend, which the extension starts or reuses automatically; **no manual `pnpm dsh web` command is needed**.
 
 ## DSH paths
 
@@ -33,9 +33,9 @@ Search VS Code settings for `deepseekHarness`: `harnessPath` selects the DSH dir
 
 ## Stop the backend and install DSH plugins
 
-**Once started, the backend does not automatically stop when chat closes, VS Code exits, or SSH disconnects.** Search the Command Palette for `Shared Backend` and run **Stop Current User's Shared Backend** to stop it. This command does not stop manually attached external backends.
+**Once started, the backend does not automatically stop when chat closes, VS Code exits, or SSH disconnects.** To stop it, search the Command Palette for `DeepSeek Harness`: **Stop Current Workspace Backend** stops only the backend of the current workspace, and **Stop All Backends** stops every backend this extension started on the machine. Neither command stops a manually attached external backend.
 
-After changing the DSH path or data directory, or installing DSH plugins, wait for active tasks to finish, stop the shared backend, and reopen chat. Install extra DSH plugins into the `web` profile under the same `DSH_HOME`; for example, run from the DSH project directory:
+When you switch workspace folders, the previous workspace's backend is stopped only when it is genuinely idle: no running tasks, queued messages, or scheduled work. After changing the DSH path or data directory, or installing DSH plugins, wait for active tasks to finish, stop that backend, and reopen chat. Install extra DSH plugins into the `web` profile under the same `DSH_HOME`; for example, run from the DSH project directory:
 
 ```sh
 pnpm dsh plugin --profile web add <package-name>

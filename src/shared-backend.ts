@@ -1,5 +1,6 @@
 /** Authenticated discovery of the user's detached Harness supervisor. */
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -10,7 +11,7 @@ import type { BackendOptions } from './backend.ts';
 /** Private discovery information written by the supervisor. */
 export interface Discovery { version: 1; port: number; token: string }
 /** Live supervisor status; credentials never cross into the Webview. */
-export interface SharedStatus { state: 'starting' | 'ready' | 'failed' | 'stopping'; cli: string; home: string; url?: string; error?: string }
+export interface SharedStatus { state: 'starting' | 'ready' | 'failed' | 'stopping'; cli: string; home: string; cwd?: string; connections?: number; url?: string; error?: string }
 
 /** @param directory - Per-user private state directory. @returns Discovery record, or absence when unpublished. */
 export async function discovery(directory: string): Promise<Discovery | undefined> {
@@ -42,6 +43,23 @@ export async function probe(target: Discovery, stop = false): Promise<SharedStat
   return value as unknown as SharedStatus;
 }
 
+/** Stop idempotently, including a supervisor already finishing another stop request.
+ * @param target - Authenticated discovery record.
+ * @returns Completion after the backend has exited and the supervisor stops answering.
+ */
+export async function stopSupervisor(target: Discovery): Promise<void> {
+  const status = await probe(target);
+  if (!status) return;
+  if (status.state !== 'stopping' && !await probe(target, true)) {
+    throw new Error('Backend did not acknowledge shutdown');
+  }
+  const deadline = Date.now() + 20000;
+  while (await probe(target)) {
+    if (Date.now() >= deadline) throw new Error('Backend supervisor did not finish shutdown');
+    await delay(100);
+  }
+}
+
 /** Each instance attaches to the same per-user supervisor; closing a client does not stop it. */
 export class SharedBackend {
   private target?: Discovery;
@@ -52,7 +70,12 @@ export class SharedBackend {
 
   /** @param options - Official profile settings. @returns Existing or newly started server's launch URL. */
   start(options: BackendOptions): Promise<string> {
-    return this.pending ??= this.connect(options);
+    if (!this.pending) {
+      const pending = this.connect(options);
+      this.pending = pending;
+      void pending.catch(() => { if (this.pending === pending) this.pending = undefined; });
+    }
+    return this.pending;
   }
 
   private async connect(options: BackendOptions): Promise<string> {
@@ -75,7 +98,7 @@ export class SharedBackend {
         this.target = target;
 
         // A shared supervisor serves one harnessPath/home pair for its whole lifetime.
-        if (status.cli !== cli || status.home !== home) throw new Error('A shared Harness is already running with another harnessPath/home. Stop it explicitly before changing those settings.');
+        if (status.cli !== cli || status.home !== home || status.cwd !== options.cwd) throw new Error('A shared Harness is already running with different workspace/runtime settings. Stop the workspace backend before changing those settings.');
         if (status.state === 'ready' && status.url) {
           this.log(`Shared backend ${spawned ? 'connected' : 'reused'} (${Date.now() - (deadline - options.startupTimeoutSeconds * 1000)} ms)`);
           return status.url;
@@ -99,6 +122,53 @@ export class SharedBackend {
     }
 
     throw new Error(`Shared backend startup timed out; inspect ${join(this.directory, 'supervisor.log')}`);
+  }
+
+  /** Hold one live view connection independently of Webview visibility.
+   * @param lost - Called if the supervisor loses the lease unexpectedly.
+   * @returns Async release; it never terminates the backend.
+   */
+  async lease(lost: (stopped: boolean) => void): Promise<() => Promise<void>> {
+    const target = this.target;
+    if (!target) throw new Error('Workspace backend is not connected');
+    const controller = new AbortController();
+    const id = randomUUID();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let response: Response;
+    try {
+      response = await fetch(`http://127.0.0.1:${target.port}/lease/${id}`, {
+        method: 'POST', headers: { authorization: `Bearer ${target.token}` }, signal: controller.signal,
+      });
+    } finally { clearTimeout(timer); }
+    if (!response.ok || !response.body) {
+      await response.body?.cancel();
+      throw new Error('Unable to register workspace connection');
+    }
+    const reader = response.body.getReader();
+    let stopped = false;
+    let text = '';
+    const done = (async () => {
+      try {
+        while (true) {
+          const frame = await reader.read();
+          if (frame.done) break;
+          text = (text + Buffer.from(frame.value).toString()).slice(-128);
+          if (!stopped && text.includes('stopped\n')) { stopped = true; lost(true); }
+        }
+      }
+      catch (error) { if (!controller.signal.aborted) this.log(`Supervisor connection lost: ${String(error)}`); }
+      finally { reader.releaseLock(); if (!controller.signal.aborted && !stopped) lost(false); }
+    })();
+    return async () => {
+      controller.abort();
+      await done;
+      try {
+        const released = await fetch(`http://127.0.0.1:${target.port}/lease/${id}`, {
+          method: 'DELETE', headers: { authorization: `Bearer ${target.token}` }, signal: AbortSignal.timeout(1500),
+        });
+        await released.body?.cancel();
+      } catch (error) { /* A disconnected supervisor retains no usable lease; handoff will fail closed. */ }
+    };
   }
 
   /** Explicitly stop the server shared by this user's windows. */

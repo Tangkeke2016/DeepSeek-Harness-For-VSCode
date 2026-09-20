@@ -23,3 +23,17 @@ export function historyTime(timestamp: number, now: number, language: string): s
 
   return `${count}${text.timeSeparator}${unit}`;
 }
+
+/** Filter visible titles without changing their activity order.
+ * @param rows - Sessions in display order.
+ * @param query - Literal, case-insensitive title text.
+ * @param blankTitle - Localized title of a blank session.
+ * @returns Matching sessions; whitespace alone keeps all rows.
+ */
+export function filterSessions<T extends { displayTitle: string; blank: boolean }>(
+  rows: readonly T[], query: string, blankTitle: string,
+): T[] {
+  const needle = query.trim().normalize('NFKC').toLocaleLowerCase();
+  return rows.filter(row => (row.blank ? blankTitle : row.displayTitle)
+    .normalize('NFKC').toLocaleLowerCase().includes(needle));
+}
