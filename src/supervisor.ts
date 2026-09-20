@@ -5,6 +5,7 @@ import { writeFile, rename, rm, appendFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import lockfile from 'proper-lockfile';
+import { DetachedPages } from './detached-pages.ts';
 import { Backend, type BackendOptions } from './backend.ts';
 import { discovery, probe, type SharedStatus } from './shared-backend.ts';
 import { redact } from './protocol.ts';
@@ -72,7 +73,10 @@ async function main(): Promise<void> {
 
     if (request.url === '/status' && request.method === 'GET') {
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify({ ...status, connections: clients.size }));
+      response.end(JSON.stringify({ ...status, pageRelay: 1, connections: clients.size + pages.connections }));
+    } else if (request.url === '/pages' && request.method === 'POST') {
+      if (checkingIdle) { response.writeHead(409).end(); return; }
+      pages.register(request, response);
     } else if (/^\/lease\/[a-f0-9-]{36}$/.test(request.url ?? '') && request.method === 'POST') {
       if (status.state !== 'ready' || checkingIdle) { response.writeHead(409).end(); return; }
       const id = request.url!;
@@ -103,7 +107,7 @@ async function main(): Promise<void> {
         } catch (error) { response.writeHead(400).end(); }
       });
     } else if (request.url === '/stop-idle' && request.method === 'POST') {
-      if (clients.size || checkingIdle || status.state !== 'ready' || !guardPort) {
+      if (clients.size || pages.connections || checkingIdle || status.state !== 'ready' || !guardPort) {
         response.end(JSON.stringify({ stopped: false })); return;
       }
       // Exclude new leases while the in-process guard claims every idle Agent.
@@ -137,11 +141,14 @@ async function main(): Promise<void> {
     } else response.writeHead(404).end();
   });
 
+  const pages = new DetachedPages(server, token, () => status.state === 'ready' && !checkingIdle ? status.url : undefined);
+
   stop = () => stopping ??= (async () => {
     status.state = 'stopping';
     await startup?.catch(() => undefined);
     await backend.dispose();
 
+    await pages.dispose();
     for (const client of clients.values()) client.end();
 
     // Stop accepting connections, then close the listeners that remain.

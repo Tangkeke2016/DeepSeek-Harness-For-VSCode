@@ -22,6 +22,7 @@ export interface WebAssets {
 
 /** One view's workspace and launch intent, never authentication secrets. */
 export interface ViewConfig {
+  recovery?: { url: string; token: string };
   cwd: string;
   language: string;
   mode: 'chat' | 'settings';
@@ -170,7 +171,7 @@ export async function webviewHtml(source: string, assets: WebAssets, config: Vie
   // The configuration is embedded, so `<` is escaped to keep it out of the markup.
   const configJson = JSON.stringify(config).replaceAll('<', '\\u003c');
   // The official Cordis loader evaluates its client configuration expressions.
-  const csp = `default-src 'none'; script-src 'nonce-${config.nonce}' ${assets.cspSource} blob: 'unsafe-eval'; style-src ${assets.cspSource}${assets.inlineStatic ? ' data:' : ''} 'unsafe-inline'; img-src ${assets.cspSource} data: blob: https:; font-src ${assets.cspSource} data: blob:; connect-src ${assets.cspSource} blob:; worker-src blob:;`;
+  const csp = `default-src 'none'; script-src 'nonce-${config.nonce}' ${assets.cspSource} blob: 'unsafe-eval'; style-src ${assets.cspSource}${assets.inlineStatic ? ' data:' : ''} 'unsafe-inline'; img-src ${assets.cspSource} data: blob: https:; font-src ${assets.cspSource} data: blob:; connect-src ${assets.cspSource} blob:${config.recovery ? ' ' + new URL(config.recovery.url).origin : ''}; worker-src blob:;`;
   const prefix = parseFragment(`<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body{margin:0!important;padding:0!important;min-height:100%;background:var(--vscode-editor-background,#181818)}#root{width:100%;height:100dvh}</style><link rel="stylesheet" href="${assets.styleUri}"><script nonce="${config.nonce}">globalThis.__VSCODE_DSH_CONFIG__=${configJson}</script><script nonce="${config.nonce}" src="${assets.bridgeUri}"></script>`);
   head.childNodes.unshift(...prefix.childNodes);
 

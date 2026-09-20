@@ -1,4 +1,5 @@
 /** Browser side of the Webview carrier; official client plugins retain their own protocol and recovery logic. */
+import { PageCarrier } from './page-carrier.ts';
 import { contextText, type EditorContext } from './messages.ts';
 import type { ViewConfig } from './html.ts';
 import { bridgePluginResources } from './plugin-resources.ts';
@@ -27,6 +28,7 @@ interface BrowserGlobals {
 const global = globalThis as unknown as BrowserGlobals;
 const nativeApi = acquireVsCodeApi();
 const config = global.__VSCODE_DSH_CONFIG__;
+let carrier: PageCarrier | undefined;
 
 // A restored panel resumes on the session it last showed.
 let panelState = { cwd: config.cwd, sessionId: config.sessionId, title: config.fresh ? undefined : config.sessionTitle };
@@ -38,7 +40,8 @@ const api = { postMessage: (value: Record<string, unknown>): void => {
     panelState = { cwd: config.cwd, sessionId: value.sessionId, title: value.blank === false && typeof value.title === 'string' ? value.title : undefined };
     nativeApi.setState(panelState);
   }
-  nativeApi.postMessage({ ...value, epoch: config.nonce });
+  if (carrier) carrier.post({ ...value, epoch: config.nonce });
+  else nativeApi.postMessage({ ...value, epoch: config.nonce });
 } };
 
 const nativeFetch = window.fetch.bind(window);
@@ -207,6 +210,18 @@ function receive(packet: Packet): void {
     queue.wake?.();
     queue.wake = undefined;
   } else global.__VSCODE_DSH__.handle?.(packet);
+}
+
+if (config.recovery) {
+  carrier = new PageCarrier(config.recovery, config.language, packet => receive(packet as unknown as Packet), () => {
+    const error = Object.assign(new Error('Page carrier disconnected'), { dshRemoteStreamFailure: { kind: 'carrier' } });
+    for (const request of requests.values()) request.reject(error);
+    requests.clear();
+    for (const queue of streams.values()) {
+      queue.error = error; queue.closed = true; queue.wake?.(); queue.wake = undefined;
+    }
+  });
+  window.addEventListener('unload', () => carrier?.dispose(), { once: true });
 }
 
 window.addEventListener('message', (event: MessageEvent<Packet>) => {

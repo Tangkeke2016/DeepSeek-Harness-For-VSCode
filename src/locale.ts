@@ -1,6 +1,7 @@
 /** Copy owned by the VS Code surface; official client plugins retain their dictionaries. */
 
 const en = {
+  reconnecting: 'Reconnecting… Your draft is preserved. Please retry the action after reconnection.',
   legacyBackend: 'An older user-wide backend is still running. Finish its tasks, run DeepSeek Harness: Stop All Backends, then retry to enable workspace backends.',
   restartBackend: 'Restart backend and retry',
   restartWarning: 'The session preset could not load. If DSH was updated, restart the backend to load the new dependencies. Restarting stops all tasks on this workspace backend.',
@@ -35,6 +36,7 @@ const en = {
 };
 
 const zh: typeof en = {
+  reconnecting: '正在重连… 已保留草稿，连接恢复后请重新操作。',
   legacyBackend: '旧版全用户共享后台仍在运行。请先完成其中的任务，执行“DeepSeek Harness：关闭所有后台”，再重试以启用工作区后台。',
   restartBackend: '重启后台并重试',
   restartWarning: '会话预设未能加载。如果刚更新了 DSH，请重启后台加载新依赖。重启会停止此工作区后台上的所有任务。',

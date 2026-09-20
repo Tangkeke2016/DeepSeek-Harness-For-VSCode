@@ -84,21 +84,40 @@ body[data-dsh-vscode] [data-conversation-scroll] [class*='_slot']:has(> nav [cla
 #vscode-history-search:focus { outline: 1px solid var(--vscode-focusBorder); }
 #vscode-history-rows { max-height: calc(65vh - 52px); overflow-y: auto; }
 
-/* Transparent thumbs preserve scroll geometry and the official turn navigator. */
+/* A registered color interpolates both native and WebKit scrollbar thumbs. */
+@property --dsh-scrollbar-color {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
 body[data-dsh-vscode] [data-conversation-scroll] {
-  scrollbar-color: transparent transparent;
+  --dsh-scrollbar-color: transparent;
+  transition: --dsh-scrollbar-color 1s linear;
+  scrollbar-color: var(--dsh-scrollbar-color) transparent;
 }
 body[data-dsh-vscode] [data-conversation-scroll]::-webkit-scrollbar-thumb {
-  background: transparent;
+  background: var(--dsh-scrollbar-color);
 }
 body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-active],
 body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-near] {
-  scrollbar-color: var(--vscode-scrollbarSlider-background, #8888) transparent;
-}
-body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-active]::-webkit-scrollbar-thumb,
-body[data-dsh-vscode] [data-conversation-scroll][data-vscode-scrollbar-near]::-webkit-scrollbar-thumb {
-  background: var(--vscode-scrollbarSlider-background, #8888);
+  --dsh-scrollbar-color: var(--vscode-scrollbarSlider-background, #8888);
+  transition-duration: 0s;
 }
 body[data-dsh-vscode] [data-conversation-scroll]::-webkit-scrollbar-thumb:active {
   background: var(--vscode-scrollbarSlider-activeBackground, #888b);
+}
+
+#vscode-reconnecting {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10000;
+  max-width: min(420px, 85vw);
+  padding: 8px 12px;
+  border: 1px solid var(--vscode-widget-border, #8888);
+  border-radius: 6px;
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editor-background);
+  font: 12px/1.5 var(--vscode-font-family);
+  pointer-events: none;
 }

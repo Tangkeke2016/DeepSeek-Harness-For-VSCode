@@ -86,6 +86,27 @@ export class WorkspaceBackends {
     return client.lease(lost);
   }
 
+  /** @param cwd - Workspace directory. @returns Private supervisor control endpoint. */
+  async control(cwd: string) {
+    return discovery(join(this.root, 'workspaces', await workspaceKey(cwd)));
+  }
+
+  /** @returns Ready workspaces whose pages can survive an extension host restart. */
+  async retainedWorkspaces(): Promise<string[]> {
+    let entries: string[];
+    try { entries = await readdir(join(this.root, 'workspaces')); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
+    const results = await Promise.all(entries.filter(key => /^[a-f0-9]{64}$/.test(key)).map(async key => {
+      const target = await discovery(join(this.root, 'workspaces', key));
+      const status = target && await probe(target);
+      return status?.state === 'ready' && status.pageRelay === 1 ? status.cwd : undefined;
+    }));
+    return results.filter((cwd): cwd is string => typeof cwd === 'string');
+  }
+
   /** @param cwd - Workspace opened in VS Code. @returns Whether a supervisor already answers. */
   async exists(cwd: string): Promise<boolean> {
     const target = await discovery(join(this.root, 'workspaces', await workspaceKey(cwd)));

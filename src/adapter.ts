@@ -13,6 +13,7 @@ interface SessionState { phase: string; current?: string; ids: string[]; byId: R
 interface Workspace { workspaceId: string; path: string; sessionIds: string[] }
 interface WorkspaceState { phase: string; items: Workspace[]; archivedSessionIds: string[] }
 interface Context {
+  connection: { reconnect(): void };
   effect(start: () => (() => void), label?: string): void;
   theme: { getTheme(): { preference: string } };
   on(event: 'theme/change', listener: (snapshot: { preference: string }) => void): () => void;
@@ -46,7 +47,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };
   const primitives = require('@deepseek-ai/dsh-client-ui-primitives') as Record<string, unknown>;
-  return { inject: ['sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme'], apply(ctx: Context): void {
+  return { inject: ['connection', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme'], apply(ctx: Context): void {
     ctx.effect(() => {
       let text = copy(ctx.locale.getSnapshot().active);
       // Aborting this controller detaches every late callback of this view.
@@ -263,6 +264,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
       };
 
       bridge.handle = packet => {
+        if (packet.kind === 'reconnect-client') ctx.connection.reconnect();
         if (packet.kind === 'new-session') fresh();
 
         // A new editor selection replaces the chips of every session.

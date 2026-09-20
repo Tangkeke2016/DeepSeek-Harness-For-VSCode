@@ -11,7 +11,7 @@ import type { BackendOptions } from './backend.ts';
 /** Private discovery information written by the supervisor. */
 export interface Discovery { version: 1; port: number; token: string }
 /** Live supervisor status; credentials never cross into the Webview. */
-export interface SharedStatus { state: 'starting' | 'ready' | 'failed' | 'stopping'; cli: string; home: string; cwd?: string; connections?: number; url?: string; error?: string }
+export interface SharedStatus { pageRelay?: 1; state: 'starting' | 'ready' | 'failed' | 'stopping'; cli: string; home: string; cwd?: string; connections?: number; url?: string; error?: string }
 
 /** @param directory - Per-user private state directory. @returns Discovery record, or absence when unpublished. */
 export async function discovery(directory: string): Promise<Discovery | undefined> {
