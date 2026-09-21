@@ -18,7 +18,10 @@ export class NativeChannel {
   }
 
   private connect(): void {
-    if (this.closed) return;
+    // One socket per channel: the supervisor keeps a single host connection per
+    // window, so a second one would replace this one and keep both retrying.
+    if (this.closed || this.socket) return;
+    clearTimeout(this.retry);
     const socket = new WebSocket(`ws://127.0.0.1:${this.target.port}/native/${this.owner}`, {
       headers: { authorization: `Bearer ${this.target.token}` }, handshakeTimeout: 10000,
       maxPayload: 4 * 1024 * 1024,
@@ -26,6 +29,8 @@ export class NativeChannel {
     this.socket = socket;
     socket.on('error', () => socket.terminate());
     socket.on('close', () => {
+      if (this.socket !== socket) return;
+      this.socket = undefined;
       if (!this.closed) this.retry = setTimeout(() => this.connect(), 1000);
     });
     socket.on('message', bytes => {
@@ -40,9 +45,14 @@ export class NativeChannel {
     });
   }
 
-  /** @param epoch - Page identity. @param packet - Reply or client reconnection request. */
-  send(epoch: string, packet: unknown): void {
-    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify({ epoch, packet }));
+  /** @param epoch - Page identity. @param packet - Reply or client reconnection request.
+   * @returns Whether the supervisor socket accepted the packet; a caller that needs
+   * the page to act on it must recover another way when this is false.
+   */
+  send(epoch: string, packet: unknown): boolean {
+    if (this.socket?.readyState !== WebSocket.OPEN) return false;
+    this.socket.send(JSON.stringify({ epoch, packet }));
+    return true;
   }
 
   /** @param epoch - Page identity. @param maxBytes - Per-page transfer budget.

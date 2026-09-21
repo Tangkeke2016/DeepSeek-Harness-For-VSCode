@@ -57,6 +57,18 @@ interface View {
 
 let app: Application | undefined;
 
+/**
+ * @param cwd - Workspace directory.
+ * @returns Key of the native channel owned for that workspace. Windows compares
+ * without case because VS Code reports the path as the user opened it while the
+ * supervisor reports the resolved one; one directory must never own two channels,
+ * because the supervisor keeps a single host connection per window.
+ */
+function channelKey(cwd: string): string {
+  const path = resolve(cwd);
+  return process.platform === 'win32' ? path.toLowerCase() : path;
+}
+
 /** @param context - VS Code extension lifetime and storage. */
 export function activate(context: vscode.ExtensionContext): void {
   app = new Application(context);
@@ -78,6 +90,8 @@ class Application implements vscode.Disposable {
   private readonly output = vscode.window.createOutputChannel('DeepSeek Harness');
   private readonly subscriptions: vscode.Disposable[] = [];
   private lastEditor = vscode.window.activeTextEditor;
+  /** Whether every file was closed, so no automatic re-send may restore a selection. */
+  private contextCleared = false;
   private pendingFresh = false;
   private stopping?: Promise<void>;
   private readonly assets = new Map<string, ClientAssets>();
@@ -120,18 +134,7 @@ class Application implements vscode.Disposable {
       vscode.commands.registerCommand('deepseekHarness.open', () => this.open(false)),
       vscode.commands.registerCommand('deepseekHarness.newSession', () => this.open(true)),
       vscode.commands.registerCommand('deepseekHarness.newEditorSession', () => { try { this.output.appendLine('command: new editor'); this.openEditor(); } catch (error) { this.report(error); } }),
-      vscode.commands.registerCommand('deepseekHarness.reloadView', () => {
-        // Reload whichever view is on screen, falling back to the sidebar.
-        const active = [...this.views].find(view => 'active' in view.surface && view.surface.active);
-        const view = active ?? this.sidebar ?? [...this.views].at(-1);
-        if (!active && this.focusedPage) {
-          this.nativeChannels.get(this.focusedPage.cwd)?.send(this.focusedPage.epoch, { kind: 'reconnect-client' });
-          return;
-        }
-        if (view?.detached && view.epoch) this.nativeChannels.get(view.cwd)?.send(view.epoch, { kind: 'reconnect-client' });
-        else if (this.focusedPage) this.nativeChannels.get(this.focusedPage.cwd)?.send(this.focusedPage.epoch, { kind: 'reconnect-client' });
-        else if (view) { this.reset(view); void this.load(view); }
-      }),
+      vscode.commands.registerCommand('deepseekHarness.reloadView', () => this.reload()),
       vscode.commands.registerCommand('deepseekHarness.settings', () => this.openSettings()),
       vscode.commands.registerCommand('deepseekHarness.stop', () => this.stopBackends(this.workspace().uri.fsPath)),
       vscode.commands.registerCommand('deepseekHarness.stopAll', () => this.stopBackends()),
@@ -146,8 +149,10 @@ class Application implements vscode.Disposable {
       }),
 
       // Editor and window events that keep every view's context and visibility current.
-      vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { this.lastEditor = editor; this.editorContext(editor); } }),
-      vscode.window.onDidChangeTextEditorSelection(event => { this.lastEditor = event.textEditor; this.editorContext(event.textEditor); }),
+      vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { this.contextCleared = false; this.lastEditor = editor; this.editorContext(editor); } }),
+      vscode.window.onDidChangeTextEditorSelection(event => { this.contextCleared = false; this.lastEditor = event.textEditor; this.editorContext(event.textEditor); }),
+      // Closing every file leaves no selection to attach, so the chips go with it.
+      vscode.window.onDidChangeVisibleTextEditors(editors => { if (!editors.length) this.clearEditorContext(); }),
       vscode.window.onDidChangeWindowState(state => { this.windowFocused = state.focused; for (const view of this.views) this.visibilityChanged(view); }),
       vscode.workspace.onDidChangeWorkspaceFolders(() => { if (this.sidebar) void this.load(this.sidebar); }),
       vscode.workspace.onDidChangeConfiguration(event => { if (event.affectsConfiguration('workbench.editor.tabSizing')) for (const view of this.views) this.applyTitle(view); }),
@@ -169,23 +174,28 @@ class Application implements vscode.Disposable {
   private async nativeChannel(cwd: string): Promise<NativeChannel | undefined> {
     const target = await this.backends.control(cwd);
     if (!target) return undefined;
-    if ((await probe(target))?.pageRelay !== 1) return undefined;
-    const existing = this.nativeChannels.get(cwd);
+    const status = await probe(target);
+    if (status?.pageRelay !== 1) return undefined;
+    // The supervisor names the workspace it serves; using it as the channel's
+    // workspace keeps every spelling of one directory on one channel.
+    const workspace = status.cwd && isAbsolute(status.cwd) ? status.cwd : cwd;
+    const key = channelKey(workspace);
+    const existing = this.nativeChannels.get(key);
     if (existing?.target.token === target.token) return existing;
     existing?.dispose();
     const channel = new NativeChannel(target, vscode.env.sessionId, async (epoch, message) => {
-      this.retainedPages.set(epoch, cwd);
-      if (message.kind === 'focus') this.focusedPage = { cwd, epoch };
-      if (this.lastEditor && ['focus', 'client-ready'].includes(String(message.kind))) {
-        const context = this.selectionContext(this.lastEditor, cwd);
-        if (context) channel.send(epoch, { kind: 'editor-context', context });
+      this.retainedPages.set(epoch, workspace);
+      if (message.kind === 'focus') this.focusedPage = { cwd: workspace, epoch };
+      if (!this.contextCleared && this.lastEditor && ['focus', 'client-ready'].includes(String(message.kind))) {
+        const context = this.selectionContext(this.lastEditor, workspace);
+        if (context) channel.send(epoch, { kind: 'editor-context', context, automatic: true });
       }
       const view = [...this.views].find(view => view.epoch === epoch && !view.disposed);
       if (view) { await this.receive(view, { ...message, epoch }); return; }
       // Orphaned panels have no VS Code handle, but native commands still belong to their window.
       switch (message.kind) {
-        case 'new-editor': this.openEditor(cwd); break;
-        case 'settings': this.openSettings(cwd); break;
+        case 'new-editor': this.openEditor(workspace); break;
+        case 'settings': this.openSettings(workspace); break;
         case 'close-settings': {
           const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
           if (tab?.input instanceof vscode.TabInputWebview && tab.input.viewType === 'deepseekHarness.settings') {
@@ -199,7 +209,7 @@ class Application implements vscode.Disposable {
           channel.send(epoch, { kind: 'reply', id: message.id });
           break;
         case 'open-settings-document':
-          await this.openSettingsDocument(cwd);
+          await this.openSettingsDocument(workspace);
           channel.send(epoch, { kind: 'reply', id: message.id });
           break;
         case 'external':
@@ -208,13 +218,18 @@ class Application implements vscode.Disposable {
             if (['https', 'http', 'mailto'].includes(uri.scheme)) await vscode.env.openExternal(uri);
           }
           break;
-        case 'session-create-failed': await this.sessionCreateFailed(String(message.error), cwd); break;
+        case 'session-create-failed': await this.sessionCreateFailed(String(message.error), workspace); break;
         case 'client-failure':
         case 'client-diagnostic': this.output.appendLine(redact(String(message.error))); break;
       }
     });
-    this.nativeChannels.set(cwd, channel);
+    this.nativeChannels.set(key, channel);
     return channel;
+  }
+
+  /** @param cwd - Workspace directory in any spelling. @returns The native channel owned for it. */
+  private channelFor(cwd: string): NativeChannel | undefined {
+    return this.nativeChannels.get(channelKey(cwd));
   }
 
   /** @param cwd - Page workspace. @returns Completion after the settings document opens. */
@@ -282,11 +297,13 @@ class Application implements vscode.Disposable {
     this.settings = this.attach(panel, 'settings', false, cwd);
   }
 
-  /** @param cwd - Workspace the new editor tab is bound to. */
-  private openEditor(cwd = this.workspace().uri.fsPath): void {
-    const panel = vscode.window.createWebviewPanel('deepseekHarness.editor', 'DeepSeek Harness', vscode.ViewColumn.Beside, { enableScripts: true, retainContextWhenHidden: true });
+  /** @param cwd - Workspace the new editor tab is bound to. @param sessionId - Session the tab resumes; a new one is created without it.
+   * @param title - Session title the tab resumes with. @param column - Column to open in; beside the active one by default.
+   */
+  private openEditor(cwd = this.workspace().uri.fsPath, sessionId?: string, title?: string, column = vscode.ViewColumn.Beside): void {
+    const panel = vscode.window.createWebviewPanel('deepseekHarness.editor', title ?? 'DeepSeek Harness', column, { enableScripts: true, retainContextWhenHidden: true });
     panel.iconPath = { light: vscode.Uri.file(join(this.context.extensionPath, 'resources/whale-light.svg')), dark: vscode.Uri.file(join(this.context.extensionPath, 'resources/whale-dark.svg')) };
-    this.attach(panel, 'chat', true, cwd);
+    this.attach(panel, 'chat', sessionId === undefined, cwd, sessionId, title);
   }
 
   /**
@@ -380,6 +397,47 @@ class Application implements vscode.Disposable {
 
     this.output.appendLine('view: reconnecting after visibility change');
     void this.load(view);
+  }
+
+  /**
+   * Reload the page on screen.
+   *
+   * A panel this host still owns is replaced by an equivalent, freshly created
+   * one: a Webview whose process is gone never executes another document, so
+   * publishing new HTML into it changes nothing while a new element always
+   * recovers. The replacement resumes the session the tab carried, and the
+   * composer draft the client persists per session returns too, because VS Code
+   * keeps one Webview origin per extension and view type; only the page's DOM and
+   * scroll position are lost. A page the supervisor kept after this host lost its
+   * handle, which no replacement here can reach, is asked to reconnect over its
+   * surviving relay.
+   */
+  private async reload(): Promise<void> {
+    const active = [...this.views].find(view => 'active' in view.surface && view.surface.active);
+    if (active?.editorTab) {
+      this.replacePanel(active);
+      return;
+    }
+
+    const page = this.focusedPage;
+    if (page && this.channelFor(page.cwd)?.send(page.epoch, { kind: 'reconnect-client' })) return;
+    const view = this.sidebar ?? [...this.views].at(-1);
+    if (view) {
+      await this.reset(view);
+      await this.load(view);
+    }
+  }
+
+  /** @param view - Panel to hand back as an equivalent new Webview, keeping its workspace, session and column. */
+  private replacePanel(view: View): void {
+    const panel = view.surface as vscode.WebviewPanel;
+    const { cwd, mode, sessionId, title } = view;
+    const column = panel.viewColumn ?? vscode.ViewColumn.Active;
+    // Disposing first retires this view, releases its relay and clears the
+    // settings slot a replacement panel would otherwise collide with.
+    panel.dispose();
+    if (mode === 'settings') this.openSettings(cwd);
+    else this.openEditor(cwd, sessionId, title, column);
   }
 
   /** @param cwd - Workspace the backend is launched for. @returns The authenticated launch URL of the owned or attached backend. */
@@ -719,7 +777,7 @@ class Application implements vscode.Disposable {
         view.ready = true;
         view.fresh = false;
         if (view.pendingNew) { view.pendingNew = false; await view.surface.webview.postMessage({ kind: 'new-session' }); }
-        if (this.lastEditor) this.sendEditorContext(view, this.lastEditor);
+        if (!this.contextCleared && this.lastEditor) this.sendEditorContext(view, this.lastEditor, true);
         break;
       case 'session':
         if (typeof message.sessionId === 'string') view.sessionId = message.sessionId;
@@ -745,6 +803,9 @@ class Application implements vscode.Disposable {
         catch (error) { await view.surface.webview.postMessage({ kind: 'failure', id: message.id, error: redact(String(error)) }); }
         break;
       case 'bridge-ready': this.output.appendLine('view: bridge ready'); break;
+      // The document ran; a missing log line instead means the Webview never
+      // executed the markup this host published.
+      case 'document-boot': this.output.appendLine('view: document booted'); break;
       case 'focus': break;
       default: throw new Error('Unknown Webview message');
     }
@@ -756,16 +817,32 @@ class Application implements vscode.Disposable {
     for (const [epoch, cwd] of this.retainedPages) {
       if ([...this.views].some(view => view.epoch === epoch)) continue;
       const context = this.selectionContext(editor, cwd);
-      if (context) this.nativeChannels.get(cwd)?.send(epoch, { kind: 'editor-context', context });
+      if (context) this.channelFor(cwd)?.send(epoch, { kind: 'editor-context', context });
     }
   }
 
-  /** @param view - The chat view receiving context. @param editor - The editor to describe. */
-  private sendEditorContext(view: View, editor: vscode.TextEditor): void {
+  /** Drop every chat view's chips once no file is open any more. */
+  private clearEditorContext(): void {
+    // A closed editor must not come back through an automatic re-send.
+    this.contextCleared = true;
+    for (const view of this.views) {
+      if (!view.ready || view.mode !== 'chat') continue;
+      void view.surface.webview.postMessage({ kind: 'editor-context', context: null });
+    }
+    for (const [epoch, cwd] of this.retainedPages) {
+      if ([...this.views].some(view => view.epoch === epoch)) continue;
+      this.channelFor(cwd)?.send(epoch, { kind: 'editor-context', context: null });
+    }
+  }
+
+  /** @param view - The chat view receiving context. @param editor - The editor to describe.
+   * @param automatic - Whether this only repeats a selection the view already had.
+   */
+  private sendEditorContext(view: View, editor: vscode.TextEditor, automatic = false): void {
     // Only a ready chat view can show chips, and only files inside its workspace qualify.
     if (!view.ready || view.mode !== 'chat' || editor.document.uri.scheme !== 'file') return;
     const context = this.selectionContext(editor, view.cwd);
-    if (context) void view.surface.webview.postMessage({ kind: 'editor-context', context });
+    if (context) void view.surface.webview.postMessage({ kind: 'editor-context', context, automatic });
   }
 
   /** @param editor - Current selection. @param cwd - Page workspace. @returns In-workspace context, without file contents. */

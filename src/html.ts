@@ -1,11 +1,20 @@
 /** Adapts the official, authenticated Web bootstrap to local Webview resources. */
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { parse, parseFragment, serialize, type DefaultTreeAdapterMap } from 'parse5';
 
 type Node = DefaultTreeAdapterMap['node'];
 type Element = DefaultTreeAdapterMap['element'];
+
+/** @param path - Mirrored resource file. @returns Whether it already holds published bytes. */
+async function present(path: string): Promise<boolean> {
+  try { return (await stat(path)).size > 0; }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
 
 /** Capabilities provided by Extension Host or the isolated browser smoke. */
 export interface WebAssets {
@@ -106,15 +115,21 @@ export async function webviewHtml(source: string, assets: WebAssets, config: Vie
       }
 
       await mkdir(dirname(local), { recursive: true });
-      // Publish through a unique temporary file: another view may read the same
-      // resource while this write is still in flight.
-      const temporary = `${local}.${randomUUID()}.tmp`;
-      try {
-        await writeFile(temporary, text ?? body, { flag: 'wx' });
-        await rename(temporary, local);
-      } finally {
-        try { await unlink(temporary); } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      // The name carries the content hash, so published bytes are already the
+      // wanted ones and are never rewritten: renaming over a file the Webview is
+      // reading fails on Windows, and two views can mirror the same resource at
+      // once. A lost race is therefore a success, not a failed load.
+      if (!await present(local)) {
+        const temporary = `${local}.${randomUUID()}.tmp`;
+        try {
+          await writeFile(temporary, text ?? body, { flag: 'wx' });
+          await rename(temporary, local);
+        } catch (error) {
+          if (!await present(local)) throw error;
+        } finally {
+          try { await unlink(temporary); } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          }
         }
       }
       return resourceUri;
@@ -172,7 +187,9 @@ export async function webviewHtml(source: string, assets: WebAssets, config: Vie
   const configJson = JSON.stringify(config).replaceAll('<', '\\u003c');
   // The official Cordis loader evaluates its client configuration expressions.
   const csp = `default-src 'none'; script-src 'nonce-${config.nonce}' ${assets.cspSource} blob: 'unsafe-eval'; style-src ${assets.cspSource}${assets.inlineStatic ? ' data:' : ''} 'unsafe-inline'; img-src ${assets.cspSource} data: blob: https:; font-src ${assets.cspSource} data: blob:; connect-src ${assets.cspSource} blob:${config.recovery ? ' ' + new URL(config.recovery.url).origin : ''}; worker-src blob:;`;
-  const prefix = parseFragment(`<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body{margin:0!important;padding:0!important;min-height:100%;background:var(--vscode-editor-background,#181818)}#root{width:100%;height:100dvh}</style><link rel="stylesheet" href="${assets.styleUri}"><script nonce="${config.nonce}">globalThis.__VSCODE_DSH_CONFIG__=${configJson}</script><script nonce="${config.nonce}" src="${assets.bridgeUri}"></script>`);
+  // The beacon owns the single `acquireVsCodeApi` call of the document, so a
+  // bridge script that never runs still reports that the document itself did.
+  const prefix = parseFragment(`<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body{margin:0!important;padding:0!important;min-height:100%;background:var(--vscode-editor-background,#181818)}#root{width:100%;height:100dvh}</style><link rel="stylesheet" href="${assets.styleUri}"><script nonce="${config.nonce}">globalThis.__VSCODE_DSH_CONFIG__=${configJson}</script><script nonce="${config.nonce}">globalThis.__VSCODE_DSH_API__=acquireVsCodeApi();globalThis.__VSCODE_DSH_API__.postMessage({kind:'document-boot'})</script><script nonce="${config.nonce}" src="${assets.bridgeUri}"></script>`);
   head.childNodes.unshift(...prefix.childNodes);
 
   // Inline mode needs the import map in place before any module consumes it.

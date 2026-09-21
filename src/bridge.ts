@@ -10,12 +10,17 @@ import { visibleDeadline } from './deadline.ts';
 // Themable queries and proxied plugin resources are released once the page unloads.
 window.addEventListener('unload', followEditorTheme(), { once: true });
 
-declare function acquireVsCodeApi(): { postMessage(value: unknown): void; getState(): unknown; setState(value: unknown): void };
+/** The Webview API handle, held here so the document's beacon can acquire it first. */
+interface VsCodeApi { postMessage(value: unknown): void; getState(): unknown; setState(value: unknown): void }
+
+declare function acquireVsCodeApi(): VsCodeApi;
 
 interface Packet { kind: string; id?: string; index?: number; total?: number; text?: string; value?: unknown; error?: string; failure?: unknown; body?: string; status?: number; headers?: [string, string][] }
 interface StreamQueue { values: unknown[]; error?: Error; closed: boolean; wake?: () => void }
 interface BrowserGlobals {
   __VSCODE_DSH_CONFIG__: ViewConfig;
+  /** Harness-owned API instance the document's beacon acquired before this module. */
+  __VSCODE_DSH_API__?: VsCodeApi;
   __VSCODE_DSH__: {
     post(value: unknown): void;
     contexts: () => readonly EditorContext[];
@@ -26,7 +31,9 @@ interface BrowserGlobals {
 }
 
 const global = globalThis as unknown as BrowserGlobals;
-const nativeApi = acquireVsCodeApi();
+// The document's inline beacon already acquired the API, so a script that never
+// reaches this module leaves its own evidence behind.
+const nativeApi = global.__VSCODE_DSH_API__ ?? acquireVsCodeApi();
 const config = global.__VSCODE_DSH_CONFIG__;
 let carrier: PageCarrier | undefined;
 

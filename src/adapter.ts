@@ -24,7 +24,7 @@ interface Context {
 }
 interface Globals {
   __VSCODE_DSH_CONFIG__: ViewConfig;
-  __VSCODE_DSH__: { post(value: unknown): void; contexts(): readonly EditorContext[]; submitted(contexts: readonly EditorContext[]): void; handle?(value: { kind: string; context?: EditorContext }): void };
+  __VSCODE_DSH__: { post(value: unknown): void; contexts(): readonly EditorContext[]; submitted(contexts: readonly EditorContext[]): void; handle?(value: { kind: string; context?: EditorContext | null; automatic?: boolean }): void };
   __DSH_BOOT__: { entries: { id: string; [key: string]: unknown }[]; batches: { entries: string[]; [key: string]: unknown }[] };
   __ModuleLoader__: { load(entry: { id: string; factory: (require: (name: string) => unknown) => unknown }): void };
 }
@@ -95,11 +95,22 @@ global.__ModuleLoader__.load({ id, factory: require => {
       let settingsOpened = false;
       let settingsSeen = false;
       const contexts = new Map<string, Map<string, EditorContext>>();
+      // The host re-broadcasts the current selection on every editor event, so a
+      // removal is remembered per session until that selection really changes.
+      const broadcasts = new Map<string, { fingerprint: string; removed: Set<string> }>();
 
       const currentChips = (): Map<string, EditorContext> => {
         const key = current ?? '';
         let value = contexts.get(key);
         if (!value) { value = new Map(); contexts.set(key, value); }
+        return value;
+      };
+
+      /** @returns The last broadcast of the current session and its removed contexts. */
+      const broadcast = (): { fingerprint: string; removed: Set<string> } => {
+        const key = current ?? '';
+        let value = broadcasts.get(key);
+        if (value === undefined) { value = { fingerprint: '', removed: new Set() }; broadcasts.set(key, value); }
         return value;
       };
 
@@ -116,7 +127,11 @@ global.__ModuleLoader__.load({ id, factory: require => {
           const chip = document.createElement('span'); chip.className = 'vscode-context'; chip.title = context.path;
           const label = document.createElement('span'); label.textContent = context.label;
           const remove = document.createElement('button'); remove.textContent = '×'; remove.title = text.remove; remove.setAttribute('aria-label', `${text.remove}: ${context.label}`);
-          remove.onclick = () => { currentChips().delete(context.key); renderChips(); };
+          remove.onclick = () => {
+            currentChips().delete(context.key);
+            broadcast().removed.add(JSON.stringify(context));
+            renderChips();
+          };
           chip.append(label, remove); chips.append(chip);
         }
       };
@@ -267,10 +282,23 @@ global.__ModuleLoader__.load({ id, factory: require => {
         if (packet.kind === 'reconnect-client') ctx.connection.reconnect();
         if (packet.kind === 'new-session') fresh();
 
-        // A new editor selection replaces the chips of every session.
-        if (packet.kind === 'editor-context' && packet.context && config.mode === 'chat') {
-          for (const owned of contexts.values()) owned.clear();
-          currentChips().set(packet.context.key, packet.context); renderChips();
+        // A new editor selection replaces the chips of every session, and a null
+        // context drops them once no file is open any more. An automatic repeat
+        // of the same selection keeps a removed context removed, while a gesture
+        // in the editor attaches it again.
+        if (packet.kind === 'editor-context' && config.mode === 'chat') {
+          const sent = broadcast();
+          if (packet.context === null) {
+            for (const owned of contexts.values()) owned.clear();
+            sent.fingerprint = ''; sent.removed.clear();
+          } else if (packet.context) {
+            const fingerprint = JSON.stringify(packet.context);
+            if (sent.fingerprint !== fingerprint) { sent.fingerprint = fingerprint; sent.removed.clear(); }
+            if (packet.automatic !== true) sent.removed.delete(fingerprint);
+            for (const owned of contexts.values()) owned.clear();
+            if (!sent.removed.has(fingerprint)) currentChips().set(packet.context.key, packet.context);
+          }
+          renderChips();
         }
       };
 
