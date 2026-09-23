@@ -173,7 +173,12 @@ global.__ModuleLoader__.load({ id, factory: require => {
       ];
       const settingsIcon = () => react.createElement('svg', { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true },
         ...gearPaths.map(d => react.createElement('path', { d, fill: 'currentColor', key: d.slice(0, 12) })));
-      const localIcons: Record<string, unknown> = { VscodeHistory: historyIcon, VscodeSettings: settingsIcon };
+      const localIcons: Record<string, unknown> = {
+        VscodeHistory: historyIcon,
+        VscodeSettings: settingsIcon,
+        // DSH 0.1.7 names icons by stroke weight; older clients use viewport size.
+        IconNewChatOutline16: primitives.IconNewChatOutlineMedium ?? primitives.IconNewChatOutline16,
+      };
 
       const refreshTimes = (): void => {
         if (menu.hidden) return;

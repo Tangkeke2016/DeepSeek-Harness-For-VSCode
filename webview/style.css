@@ -35,6 +35,9 @@ body[data-dsh-vscode] [data-slot='root'] > div > div:first-of-type { width: 0; o
 body[data-dsh-vscode] [data-side='sidebar'], body[data-dsh-vscode] [data-width-handle], body[data-dsh-vscode] [data-slot='conversation.hero.workspace'] { display: none !important; }
 body[data-dsh-vscode] [data-slot='conversation.session.header'] [class*='_titleRow'] { display: none; }
 body[data-dsh-vscode] [data-slot='conversation.session.header'] [class$='_header'] { min-height: 0; padding-top: 0; }
+/* Current DSH places the header outside the session slot; the extension owns its title band. */
+body[data-dsh-vscode='chat'] header:has(> [data-conversation-header-leading]) { min-height: 0; padding-top: 0; }
+body[data-dsh-vscode='chat'] [data-conversation-tabs] { margin-top: 4px; }
 body[data-dsh-vscode] [data-phase] { --dsh-chat-content-width: calc(100% - 32px); --dsh-chat-user-width: calc(100% - 32px); --dsh-composer-card-max-width: 100%; --dsh-composer-side-clearance: 12px; }
 body[data-dsh-vscode] [data-phase='hero'] [data-conversation-scroll] { justify-content: stretch; }
 body[data-dsh-vscode] [data-phase='hero'] [data-composer-seat] { flex: 1; display: flex; min-height: 0; }

@@ -1,4 +1,5 @@
 /** Browser side of the Webview carrier; official client plugins retain their own protocol and recovery logic. */
+import { pluginPath } from './plugin-path.ts';
 import { PageCarrier } from './page-carrier.ts';
 import { contextText, type EditorContext } from './messages.ts';
 import type { ViewConfig } from './html.ts';
@@ -250,7 +251,9 @@ global.__DSH_TRANSPORT__ = {
   openStream,
   async loadBundle(path: string): Promise<void> {
     // A bundle is code from the backend, so it runs under the document's nonce.
-    const reply = await call('bundle', { path });
+    const route = pluginPath(path);
+    if (!route) throw new Error('Unsupported plugin bundle reference');
+    const reply = await call('bundle', { path: route });
     const script = document.createElement('script');
     script.nonce = global.__VSCODE_DSH_CONFIG__.nonce;
     script.textContent = String(reply.value);

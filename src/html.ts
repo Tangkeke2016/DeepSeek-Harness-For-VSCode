@@ -1,4 +1,5 @@
 /** Adapts the official, authenticated Web bootstrap to local Webview resources. */
+import { pluginPath } from './plugin-path.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
@@ -159,9 +160,10 @@ export async function webviewHtml(source: string, assets: WebAssets, config: Vie
       if (node.tagName === 'script') {
         set('nonce', config.nonce);
         const src = attr('src');
-        if (src?.startsWith('/plugins/')) {
+        const plugin = src && pluginPath(src);
+        if (plugin) {
           // Plugin scripts are inlined: the Webview cannot fetch them itself.
-          const response = await assets.fetch(src);
+          const response = await assets.fetch(plugin);
           if (!response.ok) throw new Error(`Bootstrap HTTP ${response.status}`);
           node.attrs = node.attrs.filter(item => item.name !== 'src');
           node.childNodes = [{ nodeName: '#text', value: (await response.text()).replace(/<\/script/gi, '<\\/script'), parentNode: node }];
