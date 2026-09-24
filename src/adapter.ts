@@ -5,6 +5,7 @@ import { copy } from './locale.ts';
 import { historyTime, recentSessions, filterSessions } from './history.ts';
 import { settleQueueDisplay } from './queue-display.ts';
 import { autoHideScrollbars } from './scrollbars.ts';
+import { dismissModelMenuOnSelection } from './model-menu.ts';
 import { deleteSession, type DeletableSession } from './delete-session.ts';
 
 interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
@@ -19,7 +20,7 @@ interface Context {
   on(event: 'theme/change', listener: (snapshot: { preference: string }) => void): () => void;
   sessions: { list: Observable<SessionState>; create(input: { workspaceId: string }): Promise<string>; binding(id: string): { session: DeletableSession } | undefined };
   workspaces: { list: Observable<WorkspaceState>; create(input: { path: string }): Promise<Workspace> };
-  uiWorkspace: { openSession(id: string): void; openWorkspace(id: string): Promise<void>; startSession(id: string): void; archiveSession(id: string): Promise<void> };
+  uiWorkspace: { openSession(id: string): void; openWorkspace(id: string): Promise<void>; startSession(id: string): void; archiveSession(id: string, options?: { stopActivity: boolean }): Promise<void> };
   locale: Observable<{ active: string }>;
 }
 interface Globals {
@@ -242,8 +243,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
             remove.onclick = () => {
               remove.disabled = true;
               const binding = ctx.sessions.binding(sessionId);
-              if (!binding) { remove.disabled = false; bridge.post({ kind: 'error', error: text.sessionUnavailable }); return; }
-              void deleteSession(binding.session, () => ctx.uiWorkspace.archiveSession(sessionId)).then(() => { contextMenu.hidden = true; update(); }, error => { remove.disabled = false; bridge.post({ kind: 'error', error: String(error) }); });
+              void deleteSession(binding?.session, () => ctx.uiWorkspace.archiveSession(sessionId, { stopActivity: true })).then(() => { contextMenu.hidden = true; update(); }, error => { remove.disabled = false; bridge.post({ kind: 'error', error: String(error) }); });
             };
             contextMenu.append(remove); contextMenu.hidden = false;
             // Keep the menu inside the frame even for a row near an edge.
@@ -329,6 +329,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
           else if (settingsSeen) { settingsSeen = false; bridge.post({ kind: 'close-settings' }); }
         }
       };
+      const stopModelMenu = dismissModelMenuOnSelection();
       const observer = new MutationObserver(adapt); observer.observe(document.body, { childList: true, characterData: true, subtree: true });
 
       // Dismiss the popups on an outside click or Escape.
@@ -344,6 +345,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
 
       return () => {
         clearInterval(clock);
+        stopModelMenu();
         stopQueueDisplay();
         stopScrollbars();
         stopTheme(); document.body.removeAttribute('data-vscode-theme-background');

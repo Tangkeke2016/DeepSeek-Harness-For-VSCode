@@ -19,11 +19,13 @@ export interface DeletableSession {
  *
  * Archiving comes last: a session that still owned queued or running work would
  * keep producing events after it disappeared from history.
- * @param session - Binding of the selected row, independent of the active editor.
- * @param archive - Official history archival operation.
+ * @param session - Loaded binding of the selected row, absent for unopened history.
+ * @param archive - Official history archival operation, including host-owned activity handling.
  * @returns Completion after pending work is removed and cancellation acknowledged.
  */
-export async function deleteSession(session: DeletableSession, archive: () => Promise<void>): Promise<void> {
+export async function deleteSession(session: DeletableSession | undefined, archive: () => Promise<void>): Promise<void> {
+  // History summaries outlive client bindings; archival is addressed by session ID.
+  if (!session) { await archive(); return; }
   const check = (result: Result): void => {
     if (!result.ok) throw new Error(result.error?.message ?? 'Session operation failed');
   };
