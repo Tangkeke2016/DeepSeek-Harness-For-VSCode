@@ -41,8 +41,8 @@ global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.10', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.10', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.11', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.11', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
@@ -93,8 +93,10 @@ global.__ModuleLoader__.load({ id, factory: require => {
       let announced = '';
       let initialized = false;
       let selecting = config.mode === 'chat';
-      let settingsOpened = false;
+      let settingsRequestedAt = 0;
+      let settingsRequests = 0;
       let settingsSeen = false;
+      let settingsDismissedAt = 0;
       const contexts = new Map<string, Map<string, EditorContext>>();
       // The host re-broadcasts the current selection on every editor event, so a
       // removal is remembered per session until that selection really changes.
@@ -321,20 +323,59 @@ global.__ModuleLoader__.load({ id, factory: require => {
         }
 
         if (config.mode === 'settings') {
-          // Open the official settings dialog once, then report it as ready.
-          const trigger = document.querySelector<HTMLButtonElement>('[data-slot="sidebar.settings"] button');
-          if (trigger && !settingsOpened) { settingsOpened = true; trigger.click(); }
-          const dialog = document.querySelector('[data-slot="sidebar.settings"] [role="dialog"]');
-          if (dialog && settingsOpened) { dialog.setAttribute('data-vscode-settings', ''); if (!settingsSeen) bridge.post({ kind: 'client-ready' }); settingsSeen = true; }
-          else if (settingsSeen) { settingsSeen = false; bridge.post({ kind: 'close-settings' }); }
+          // Open the official settings dialog, then report it as ready. The
+          // account menu can own the visible launcher, so prefer the seat whose
+          // button announces a dialog.
+          const trigger = document.querySelector<HTMLButtonElement>('[data-slot="sidebar.settings"] button[aria-haspopup="dialog"]')
+            ?? document.querySelector<HTMLButtonElement>('[data-slot="sidebar.settings"] button');
+          // Client 0.1.7-rc.2 portals the panel beside #root and marks it
+          // data-shortcut-modal; older clients keep it inside the settings seat.
+          // While a blocking official step holds #root inert the launcher cannot
+          // open the panel, so that step's own dialog is the surface to show.
+          const panel = document.querySelector('[data-slot="sidebar.settings"] [role="dialog"], [data-shortcut-modal="settings"][role="dialog"]');
+          const blocked = document.getElementById('root')?.hasAttribute('inert') === true;
+          const dialog = panel ?? (blocked ? document.querySelector('body > [role="presentation"] > [role="dialog"][aria-modal="true"]') : null);
+          // An onboarding step can also close a panel right after it opens, so a
+          // missing panel is requested again, at most twice a second and only
+          // during the first ten seconds of the page's life.
+          const now = Date.now();
+          if (!dialog && !settingsDismissedAt && trigger && trigger.getAttribute('aria-expanded') !== 'true'
+            && now - settingsRequestedAt >= 500 && settingsRequests < 20) {
+            settingsRequests += 1; settingsRequestedAt = now; trigger.click();
+          }
+          if (dialog) { dialog.setAttribute('data-vscode-settings', ''); if (!settingsSeen) bridge.post({ kind: 'client-ready' }); settingsSeen = true; }
+          // Only the user's own dismissal closes the editor tab: the official
+          // client unmounts the panel when an onboarding step takes the surface.
+          else if (settingsSeen && settingsDismissedAt) { settingsSeen = false; bridge.post({ kind: 'close-settings' }); }
+
+          // VS Code owns the editor's key bindings, so the official shortcuts
+          // editor would offer a second map for the same keys: hide its row. The
+          // seat anchor is `display: contents`, so the row itself is marked.
+          const shortcuts = document.querySelector<HTMLButtonElement>(`[data-shortcut-modal="settings"] button[aria-label="${text.editShortcuts}"]`);
+          const seat = shortcuts?.closest('[data-slot="settings.general.item"]');
+          if (shortcuts && seat) {
+            let row: Element = shortcuts;
+            while (row.parentElement && row.parentElement !== seat) row = row.parentElement;
+            row.setAttribute('data-vscode-hidden', '');
+          }
         }
       };
       const stopModelMenu = dismissModelMenuOnSelection();
       const observer = new MutationObserver(adapt); observer.observe(document.body, { childList: true, characterData: true, subtree: true });
 
-      // Dismiss the popups on an outside click or Escape.
-      const outside = (event: PointerEvent): void => { if (!contextMenu.contains(event.target as Node)) contextMenu.hidden = true; if (!header.contains(event.target as Node)) menu.hidden = true; };
-      const escape = (event: KeyboardEvent): void => { if (event.key === 'Escape') { menu.hidden = true; contextMenu.hidden = true; } };
+      // Dismiss the popups on an outside click or Escape. A gesture aimed outside
+      // the marked settings surface is the user's own close of that dialog.
+      const outside = (event: PointerEvent): void => {
+        if (!contextMenu.contains(event.target as Node)) contextMenu.hidden = true;
+        if (!header.contains(event.target as Node)) menu.hidden = true;
+        const surface = document.querySelector('[data-vscode-settings]');
+        if (surface && !surface.contains(event.target as Node)) settingsDismissedAt = Date.now();
+      };
+      const escape = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape') return;
+        menu.hidden = true; contextMenu.hidden = true;
+        if (document.querySelector('[data-vscode-settings]')) settingsDismissedAt = Date.now();
+      };
       document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape);
 
       search.oninput = () => { contextMenu.hidden = true; update(); };

@@ -37,6 +37,10 @@ body[data-dsh-vscode] [data-slot='conversation.session.header'] [class*='_titleR
 body[data-dsh-vscode] [data-slot='conversation.session.header'] [class$='_header'] { min-height: 0; padding-top: 0; }
 /* Current DSH places the header outside the session slot; the extension owns its title band. */
 body[data-dsh-vscode='chat'] header:has(> [data-conversation-header-leading]) { min-height: 0; padding-top: 0; }
+/* Without view tabs the official header keeps only its 10px bottom padding, which
+   leaves the rule about twice as far below the title as the band's own 12.5px
+   above it; drop that padding so the rule meets the band's bottom edge. */
+body[data-dsh-vscode='chat'] header:has(> [data-conversation-header-leading]):not(:has([data-conversation-tabs])) { padding-bottom: 0; }
 body[data-dsh-vscode='chat'] [data-conversation-tabs] { margin-top: 4px; }
 body[data-dsh-vscode] [data-phase] { --dsh-chat-content-width: calc(100% - 32px); --dsh-chat-user-width: calc(100% - 32px); --dsh-composer-card-max-width: 100%; --dsh-composer-side-clearance: 12px; }
 body[data-dsh-vscode] [data-phase='hero'] [data-conversation-scroll] { justify-content: stretch; }
@@ -57,6 +61,9 @@ body[data-dsh-vscode] [data-composer-card] > [class$='_row'] > [class$='_trailin
 body[data-dsh-vscode='settings'] #vscode-header { display: none; }
 body[data-dsh-vscode='settings'] [data-vscode-settings] { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; visibility: visible; background: var(--dsw-alias-bg-base, var(--vscode-editor-background)); }
 body[data-dsh-vscode='settings'] [data-vscode-settings] * { visibility: visible; }
+/* VS Code owns the editor's key bindings, so the adapter marks the official
+   shortcuts editor row for removal instead of offering a second key map. */
+body[data-dsh-vscode] [data-vscode-hidden] { display: none !important; }
 /* The official fullscreen right panel anchors to the Webview's top edge, which
    puts its 38px tab strip — the collapse control and each chip's close control —
    under the reserved band. Start it below, so a file preview stays closable. */
