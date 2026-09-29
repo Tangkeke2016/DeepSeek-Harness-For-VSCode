@@ -36,7 +36,7 @@ const en = {
   failed: 'Unable to open DeepSeek Harness',
   close: 'Close settings',
   connectPrompt: 'Official dsh Web launch URL (including token)',
-  stopped: 'Backend disconnected. Open chat or retry to reconnect.'
+  stopped: 'Backend disconnected; open chat or retry to reconnect.'
 };
 
 const zh: typeof en = {
@@ -75,7 +75,7 @@ const zh: typeof en = {
   failed: '无法打开 DeepSeek Harness',
   close: '关闭设置',
   connectPrompt: '官方 dsh Web 启动 URL（包含 token）',
-  stopped: '后台已断开。打开聊天或点击重试可重新连接。'
+  stopped: '后台已断开，打开聊天或点击重试可重新连接。'
 };
 
 /** @param language - VS Code or client language. @returns Local surface dictionary. */

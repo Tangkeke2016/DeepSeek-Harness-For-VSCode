@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from './backend-fetch.ts';
 /** Owns authenticated HTTP and one multiplexed socket; callers own reconnection. */
 import { randomUUID } from 'node:crypto';
 import WebSocket from 'ws';

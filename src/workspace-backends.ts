@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from './backend-fetch.ts';
 /** Workspace discovery stays on the extension host, including Remote SSH hosts. */
 import { createHash } from 'node:crypto';
 import { realpath, readdir, readFile, writeFile, mkdir } from 'node:fs/promises';

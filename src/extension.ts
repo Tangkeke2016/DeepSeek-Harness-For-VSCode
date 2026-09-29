@@ -31,6 +31,9 @@ type Surface = vscode.WebviewView | vscode.WebviewPanel;
  * every message with the epoch it was created for.
  */
 interface View {
+  recoveryCandidate?: boolean;
+  recoveryTimer?: ReturnType<typeof setTimeout>;
+  recoveryAttempts?: number;
   detached?: boolean;
   visible: boolean;
   reconnectPending?: boolean;
@@ -164,11 +167,43 @@ class Application implements vscode.Disposable {
   /** Reconnect a discovered workspace backend without starting one on every VS Code launch. */
   private async restoreBackend(): Promise<void> {
     if (!vscode.workspace.isTrusted || !vscode.workspace.workspaceFolders?.length) return;
+    const interrupted = this.context.workspaceState.get<unknown>('v2.interruptedPanels');
     try {
       const cwd = this.workspace().uri.fsPath;
       if (await this.backends.exists(cwd)) { await this.backendUrl(cwd); await this.nativeChannel(cwd); }
       for (const retained of await this.backends.retainedWorkspaces()) await this.nativeChannel(retained);
     } catch (error) { this.output.appendLine(redact(String(error))); }
+    if (!Array.isArray(interrupted)) return;
+    const remaining = vscode.window.tabGroups.all.flatMap(group => group.tabs.map(tab => ({ tab, column: group.viewColumn })));
+    const owned = [...this.views];
+    for (const value of interrupted) {
+      if (!value || typeof value !== 'object') continue;
+      const saved = record(value);
+      if ((saved.mode !== 'chat' && saved.mode !== 'settings') || typeof saved.cwd !== 'string'
+        || !isAbsolute(saved.cwd) || typeof saved.label !== 'string' || typeof saved.column !== 'number') continue;
+      const type = saved.mode === 'settings' ? 'deepseekHarness.settings' : 'deepseekHarness.editor';
+      const index = remaining.findIndex(({ tab, column }) => column === saved.column && tab.label === saved.label
+        && tab.input instanceof vscode.TabInputWebview && tab.input.viewType === type);
+      if (index < 0) continue;
+      const { tab } = remaining.splice(index, 1)[0]!;
+      // A serializer may already have recovered this panel while discovery was pending.
+      const restored = owned.findIndex(view => view.mode === saved.mode && view.cwd === saved.cwd
+        && view.sessionId === saved.sessionId && 'viewColumn' in view.surface && view.surface.viewColumn === saved.column);
+      if (restored >= 0) { owned.splice(restored, 1); continue; }
+      if (saved.mode === 'settings') this.openSettings(saved.cwd);
+      else this.openEditor(saved.cwd, typeof saved.sessionId === 'string' ? saved.sessionId : undefined,
+        typeof saved.title === 'string' ? saved.title : undefined, saved.column);
+      await vscode.window.tabGroups.close(tab);
+    }
+  }
+
+  /** Persist only interrupted loads; ready pages recover over their detached relay. */
+  private checkpointPanels(): Thenable<void> {
+    const pending = [...this.views].filter(view => view.editorTab && view.recoveryCandidate && !view.disposed);
+    return this.context.workspaceState.update('v2.interruptedPanels', pending.map(view => ({
+      cwd: view.cwd, mode: view.mode, sessionId: view.sessionId, title: view.title,
+      label: (view.surface as vscode.WebviewPanel).title, column: (view.surface as vscode.WebviewPanel).viewColumn,
+    })));
   }
 
   /** Restore native actions even when VS Code retains a panel without deserializing it. */
@@ -350,6 +385,7 @@ class Application implements vscode.Disposable {
 
     surface.onDidDispose(() => {
       view.disposed = true;
+      void this.checkpointPanels();
       this.reset(view);
       listener.dispose();
       visibility.dispose();
@@ -479,6 +515,7 @@ class Application implements vscode.Disposable {
 
   /** @param view - The view to (re)connect and publish. */
   private async loadView(view: View): Promise<void> {
+    clearTimeout(view.recoveryTimer);
     // Invalidate the previous generation before tearing it down.
     view.detached = false;
     view.loadFailed = false;
@@ -503,7 +540,8 @@ class Application implements vscode.Disposable {
     const phase = (name: string): void => this.output.appendLine(`view ${generation}: ${name}`);
     phase('loading');
     view.surface.webview.options = { enableScripts: true };
-    view.surface.webview.html = this.status(text.loading);
+    view.surface.webview.html = this.setupPage({ message: startupCopy(vscode.env.language).loading,
+      resume: { cwd: view.cwd || this.workspace().uri.fsPath, sessionId: view.sessionId, title: view.title } });
 
     let transport: Transport | undefined;
     try {
@@ -514,6 +552,9 @@ class Application implements vscode.Disposable {
         view.fresh = false;
       }
       view.cwd = cwd;
+      view.recoveryCandidate = true;
+      await this.checkpointPanels();
+      if (!active()) return;
 
       // Check the local prerequisites once, before any backend is started, so a
       // missing Node.js or CLI becomes the setup page instead of a launch error.
@@ -526,6 +567,7 @@ class Application implements vscode.Disposable {
         if (failures.nodeError !== undefined || failures.binError !== undefined) { view.surface.webview.html = this.setupPage(failures); return; }
       }
 
+      if (!active()) return;
       const url = await this.backendUrl(cwd);
       if (!active()) return;
       phase('backend ready');
@@ -535,6 +577,8 @@ class Application implements vscode.Disposable {
           this.launches.delete(cwd);
           void this.backends.invalidate(cwd).catch(error => this.output.appendLine(redact(String(error))));
           if (stopped) {
+            view.recoveryCandidate = false;
+            void this.checkpointPanels();
             view.reconnectPending = false;
             view.reconnectAvailable = false;
             void this.reset(view);
@@ -611,6 +655,8 @@ class Application implements vscode.Disposable {
 
   /** @param view - The view whose connection must be dropped without touching the backend. */
   private reset(view: View): Promise<void> {
+    clearTimeout(view.recoveryTimer);
+    view.recoveryTimer = undefined;
     // Bumping the generation invalidates every callback still in flight.
     view.detached = false;
     view.epoch = undefined;
@@ -643,6 +689,15 @@ class Application implements vscode.Disposable {
     if (!view.visible) return;
     if (view.reconnectAvailable) { this.reconnect(view); return; }
     view.surface.webview.html = this.status(`${copy(vscode.env.language).failed}: ${redact(error.message)}`, true);
+    if ((view.recoveryAttempts ?? 0) < 3) {
+      const attempt = view.recoveryAttempts = (view.recoveryAttempts ?? 0) + 1;
+      view.recoveryTimer = setTimeout(() => {
+        if (!view.disposed && view.reconnectPending && !this.stopping) this.reconnect(view);
+      }, attempt * 1000);
+    } else {
+      view.recoveryCandidate = false;
+      void this.checkpointPanels();
+    }
   }
 
   /** @param message - Localized status text. @param retry - Whether the page offers a retry action. */
@@ -753,7 +808,7 @@ class Application implements vscode.Disposable {
       case 'setup-bin': await this.configureRuntime(view, false); break;
       case 'setup-directory': await this.configureRuntime(view, true); break;
       case 'setup-install': await this.installRuntime(view); break;
-      case 'retry': this.reset(view); await this.load(view); break;
+      case 'retry': view.recoveryAttempts = 0; await this.reset(view); await this.load(view); break;
       case 'client-failure':
         if (view.detached && view.ready) this.output.appendLine(redact(String(message.error)));
         else this.failed(view, new Error(String(message.error)));
@@ -772,6 +827,9 @@ class Application implements vscode.Disposable {
       case 'new-editor': this.openEditor(view.cwd); break;
       case 'close-settings': if (view.mode === 'settings') (view.surface as vscode.WebviewPanel).dispose(); break;
       case 'client-ready':
+        view.recoveryAttempts = 0;
+        view.recoveryCandidate = false;
+        void this.checkpointPanels();
         // Readiness ends the initialization deadline for this load.
         clearTimeout(view.timer);
         view.timer = undefined;
@@ -901,11 +959,13 @@ class Application implements vscode.Disposable {
     const targets = [...this.views].filter(view => cwd === undefined || view.cwd === cwd);
     const stop = (async () => {
       for (const view of targets) {
+        view.recoveryCandidate = false;
         view.reconnectPending = false;
         view.reconnectAvailable = false;
         await this.reset(view);
         if (!view.disposed) view.surface.webview.html = this.status(copy(vscode.env.language).stopped, true);
       }
+      await this.checkpointPanels();
       // Wait for already requested starts so stop cannot leave an unseen child behind.
       const launches = [...this.launches].filter(([key]) => cwd === undefined || key === cwd);
       await Promise.allSettled(launches.map(([, launch]) => launch));

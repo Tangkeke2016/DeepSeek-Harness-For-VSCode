@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from './backend-fetch.ts';
 /** Authenticated discovery of the user's detached Harness supervisor. */
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';

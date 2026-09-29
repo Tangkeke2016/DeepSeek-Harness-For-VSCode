@@ -1,3 +1,4 @@
+import { backendFetch as fetch } from './backend-fetch.ts';
 /** Reattach native editor actions to pages retained by the detached supervisor. */
 import WebSocket from 'ws';
 import type { Discovery } from './shared-backend.ts';
