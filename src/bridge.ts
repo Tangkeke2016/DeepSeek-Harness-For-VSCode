@@ -276,8 +276,9 @@ document.addEventListener('click', event => {
   const url = new URL(link.href, location.href);
   if (['http:', 'https:', 'mailto:'].includes(url.protocol) && url.origin !== location.origin) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     api.postMessage({ kind: 'external', url: url.href });
   }
-});
+}, true);
 
 api.postMessage({ kind: 'bridge-ready' });

@@ -7,13 +7,15 @@ import { settleQueueDisplay } from './queue-display.ts';
 import { autoHideScrollbars } from './scrollbars.ts';
 import { dismissModelMenuOnSelection } from './model-menu.ts';
 import { deleteSession, type DeletableSession } from './delete-session.ts';
+import { routeFiles, type ResourceNavigation } from './file-navigation.ts';
 
 interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
-interface Summary { id: string; updatedAt: number; displayTitle: string; blank: boolean; running: boolean; retainedBy?: Record<string, number> }
+interface Summary { id: string; cwd?: string; updatedAt: number; displayTitle: string; blank: boolean; running: boolean; retainedBy?: Record<string, number> }
 interface SessionState { phase: string; current?: string; ids: string[]; byId: Record<string, Summary> }
 interface Workspace { workspaceId: string; path: string; sessionIds: string[] }
 interface WorkspaceState { phase: string; items: Workspace[]; archivedSessionIds: string[] }
 interface Context {
+  sidebarRight: ResourceNavigation;
   connection: { reconnect(): void };
   effect(start: () => (() => void), label?: string): void;
   theme: { getTheme(): { preference: string } };
@@ -41,15 +43,18 @@ global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.11', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.11', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.1.12', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.1.12', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };
   const primitives = require('@deepseek-ai/dsh-client-ui-primitives') as Record<string, unknown>;
-  return { inject: ['connection', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme'], apply(ctx: Context): void {
+  return { inject: ['connection', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme', 'sidebarRight'], apply(ctx: Context): void {
     ctx.effect(() => {
+      const stopFileNavigation = routeFiles(ctx.sidebarRight,
+        sessionId => ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd,
+        file => bridge.post({ kind: 'open-file', ...file }));
       let text = copy(ctx.locale.getSnapshot().active);
       // Aborting this controller detaches every late callback of this view.
       const lifetime = new AbortController();
@@ -385,6 +390,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
       const clock = setInterval(refreshTimes, 1000);
 
       return () => {
+        stopFileNavigation();
         clearInterval(clock);
         stopModelMenu();
         stopQueueDisplay();

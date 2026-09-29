@@ -14,13 +14,17 @@
 
 ## 安装与启动
 
-1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.11.vsix`。
+1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.1.12.vsix`。
 2. 在 VS Code 扩展面板中选择“从 VSIX 安装…”，安装后按提示重新加载窗口。
 3. 打开并信任项目工作区，点击编辑器右上角鲸鱼按钮，或在命令面板搜索 `DeepSeek Harness` 打开聊天。
 4. 首次启动缺少 DSH 路径时，点击“一键安装官方 DSH”执行 `npx @deepseek-ai/dsh web` 并自动保存安装路径，或点击“选择 DSH 目录”“选择 bin 文件”。有效选择会保存并自动尝试加载；无效选择会提示并重新打开选择器，取消即可停止。
 5. 在官方设置页面配置模型及凭据，开始会话。
 
 工作目录使用当前 VS Code 工作区，无需另行选择。每个工作区各自拥有独立后台，插件按需自动启动或复用它，**无需手动运行 `pnpm dsh web`**。
+
+会话中的文件引用会在 VS Code 编辑器中打开；已打开的文件优先切换到现有页签，未打开的文件新建页签，带行号的引用会定位到对应行。
+
+打开规则：HTTP/HTTPS 链接与本机 HTML/HTM 文件使用默认浏览器；本机文件夹在系统文件管理器中显示；其它文件使用 VS Code 页签。文件不存在时提示错误。远程文件夹无法直接在本机文件管理器显示；远程 HTML 需通过 HTTP 和端口转发在浏览器访问。
 
 ## DSH 路径
 

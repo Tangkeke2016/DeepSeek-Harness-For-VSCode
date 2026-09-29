@@ -14,13 +14,17 @@ For Remote SSH, install the extension on the remote host and prepare Node.js and
 
 ## Install and start
 
-1. Download `tangkeke-deepseek-harness-0.1.11.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
+1. Download `tangkeke-deepseek-harness-0.1.12.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
 2. Choose **Install from VSIX…** in the VS Code Extensions panel and reload when prompted.
 3. Open and trust a project workspace. Click the whale in the editor title bar, or search the Command Palette for `DeepSeek Harness` to open chat.
 4. If the DSH path is missing, choose **Install official DSH** to run `npx @deepseek-ai/dsh web` and save its installed path automatically, or choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
 5. Configure models and credentials in the official settings page and start a conversation.
 
 The working directory is the current VS Code workspace. Each workspace owns its own backend, which the extension starts or reuses automatically; **no manual `pnpm dsh web` command is needed**.
+
+File references in conversations open in the VS Code editor. Existing file tabs are reused; other files open in new tabs. References with a line number navigate to that line.
+
+Opening rules: HTTP/HTTPS links and local HTML/HTM files use the default browser; local folders are revealed in the system file manager; other files use VS Code tabs. Missing files report an error. Remote folders cannot be revealed locally; remote HTML requires HTTP serving and port forwarding for browser access.
 
 ## DSH paths
 

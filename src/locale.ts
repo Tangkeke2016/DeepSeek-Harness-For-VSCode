@@ -1,6 +1,9 @@
 /** Copy owned by the VS Code surface; official client plugins retain their dictionaries. */
 
 const en = {
+  browserOpenFailed: 'The browser could not open this page.',
+  remoteWebFile: 'This HTML file is on the remote host. Serve it over HTTP and open its forwarded URL in the browser.',
+  remoteFolder: 'This folder is on the remote host and cannot be shown in your local system file manager.',
   reconnecting: 'Reconnecting… Your draft is preserved. Please retry the action after reconnection.',
   legacyBackend: 'An older user-wide backend is still running. Finish its tasks, run DeepSeek Harness: Stop All Backends, then retry to enable workspace backends.',
   restartBackend: 'Restart backend and retry',
@@ -37,6 +40,9 @@ const en = {
 };
 
 const zh: typeof en = {
+  browserOpenFailed: '浏览器无法打开此网页。',
+  remoteWebFile: '此 HTML 文件位于远程主机，请通过 HTTP 提供该页面，再用浏览器打开转发后的网址。',
+  remoteFolder: '此文件夹位于远程主机，无法在本机系统文件管理器中显示。',
   reconnecting: '正在重连… 已保留草稿，连接恢复后请重新操作。',
   legacyBackend: '旧版全用户共享后台仍在运行。请先完成其中的任务，执行“DeepSeek Harness：关闭所有后台”，再重试以启用工作区后台。',
   restartBackend: '重启后台并重试',

@@ -19,6 +19,7 @@ import { sessionLabel, tabLabel, type EditorContext } from './messages.ts';
 import { ClientAssets } from './assets.ts';
 import { MessageDelivery } from './delivery.ts';
 import { findNpx, installHarness } from './install.ts';
+import { openChatFile } from './open-file.ts';
 
 type Surface = vscode.WebviewView | vscode.WebviewPanel;
 
@@ -194,6 +195,7 @@ class Application implements vscode.Disposable {
       if (view) { await this.receive(view, { ...message, epoch }); return; }
       // Orphaned panels have no VS Code handle, but native commands still belong to their window.
       switch (message.kind) {
+        case 'open-file': await openChatFile(message, workspace).catch(error => this.report(String(error))); break;
         case 'new-editor': this.openEditor(workspace); break;
         case 'settings': this.openSettings(workspace); break;
         case 'close-settings': {
@@ -789,6 +791,7 @@ class Application implements vscode.Disposable {
           this.applyTitle(view);
         } else if (view.mode === 'chat' && typeof message.sessionId === 'string') await this.context.workspaceState.update(`v2.session:${view.cwd}`, message.sessionId);
         break;
+      case 'open-file': await openChatFile(message, view.cwd).catch(error => this.report(String(error))); break;
       case 'external': {
         // Only schemes the host browser may open are forwarded.
         if (typeof message.url !== 'string') break;
