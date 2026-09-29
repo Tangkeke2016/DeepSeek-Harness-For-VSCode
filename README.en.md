@@ -22,12 +22,6 @@ For Remote SSH, install the extension on the remote host and prepare Node.js and
 
 The working directory is the current VS Code workspace. Each workspace owns its own backend, which the extension starts or reuses automatically; **no manual `pnpm dsh web` command is needed**.
 
-File references in conversations open in the VS Code editor. Existing file tabs are reused; other files open in new tabs. References with a line number navigate to that line.
-
-Opening rules: HTTP/HTTPS links and local HTML/HTM files use the default browser; local folders are revealed in the system file manager; other files use VS Code tabs. Missing files report an error. Remote folders cannot be revealed locally; remote HTML requires HTTP serving and port forwarding for browser access.
-
-Unexpected connection failures retry automatically. After an extension host restart, interrupted conversation tabs are restored where possible. Explicitly stopped backends stay stopped until you retry. Settings tabs retain their settings surface; close them with the VS Code tab close button.
-
 ## DSH paths
 
 | Installation | Typical bin.js location |
