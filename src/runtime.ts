@@ -1,6 +1,6 @@
 /** Locates the Node.js executable and the official CLI that launch an owned backend. */
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync, statSync, accessSync, constants } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, statSync, accessSync, constants } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
@@ -160,7 +160,7 @@ export function findCli(harnessPath: string, cwd: string, binPath = ''): string 
     if (!isAbsolute(file) || basename(file) !== 'bin.js') throw new Error('binPath must be an absolute path to the official bin.js');
     if (!statSync(file).isFile()) throw new Error('binPath must be a file');
     accessSync(file, constants.R_OK);
-    return file;
+    return realpathSync.native(file);
   }
 
   // A configured directory must contain a built CLI; nothing else is substituted.
@@ -171,7 +171,7 @@ export function findCli(harnessPath: string, cwd: string, binPath = ''): string 
     const located = CLI_ENTRIES.map(entry => join(root, entry)).find(file => existsSync(file) && statSync(file).isFile());
     if (!located) throw new Error(`deepseekHarness.harnessPath holds no built Harness CLI (expected ${CLI_ENTRIES.join(', ')}): ${root}`);
     accessSync(located, constants.R_OK);
-    return located;
+    return realpathSync.native(located);
   }
 
   // Discovery order: the workspace checkout, the workspace's installed package,
@@ -194,5 +194,7 @@ export function findCli(harnessPath: string, cwd: string, binPath = ''): string 
   if (!found) throw new Error('Official Harness not found. Set deepseekHarness.harnessPath to the Harness installation directory.');
   if (!statSync(found).isFile()) throw new Error('Official Harness CLI must be a file');
   accessSync(found, constants.R_OK);
-  return found;
+  // Windows drive-letter aliases otherwise give Node separate ESM instances
+  // for boot and dynamically loaded plugins, losing shared profile state.
+  return realpathSync.native(found);
 }

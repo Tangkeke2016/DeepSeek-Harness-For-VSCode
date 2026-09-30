@@ -2,6 +2,7 @@
 import type { ViewConfig } from './html.ts';
 import type { EditorContext } from './messages.ts';
 import { copy } from './locale.ts';
+import { MAX_SUPPORTED_BACKEND_VERSION } from './compatibility.ts';
 import { historyTime, recentSessions, filterSessions } from './history.ts';
 import { settleQueueDisplay } from './queue-display.ts';
 import { autoHideScrollbars } from './scrollbars.ts';
@@ -333,6 +334,9 @@ global.__ModuleLoader__.load({ id, factory: require => {
        * the first one (the client may still be booting).
        */
       const settingsLoading = document.createElement('div');
+      const versions = document.createElement('footer');
+      versions.id = 'vscode-backend-versions';
+      let detectedVersion: string | undefined;
       settingsLoading.id = 'vscode-settings-loading';
       const settingsMessage = document.createElement('p');
       settingsMessage.textContent = text.loading;
@@ -353,6 +357,25 @@ global.__ModuleLoader__.load({ id, factory: require => {
         // While a blocking official step holds #root inert the launcher cannot
         // open the panel, so that step's own dialog is the surface to show.
         const panel = document.querySelector('[data-slot="sidebar.settings"] [role="dialog"], [data-shortcut-modal="settings"][role="dialog"]');
+        if (panel) {
+          // Newer clients expose the connected build in General Settings; older clients use the sidebar badge.
+          for (const row of panel.querySelectorAll('[data-slot="settings.general.item"] div')) {
+            if (row.children.length !== 0) continue;
+            const match = /^(?:当前版本：|Current version:\s*)(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)$/.exec(row.textContent?.trim() ?? '');
+            if (match) {
+              detectedVersion = match[1];
+              if (!row.hasAttribute('data-vscode-hidden')) row.setAttribute('data-vscode-hidden', '');
+            }
+          }
+          const current = detectedVersion
+            ?? document.querySelector('[class*="_buildVersion"]')?.textContent?.trim()
+            ?? text.unknownVersion;
+          const caption = `${text.maxBackendVersion}: ${MAX_SUPPORTED_BACKEND_VERSION}\n${text.currentBackendVersion}: ${current}`;
+          if (versions.textContent !== caption) versions.textContent = caption;
+          if (versions.parentElement !== panel) panel.append(versions);
+          const padding = `${Math.ceil(versions.getBoundingClientRect().height)}px`;
+          if (panel instanceof HTMLElement && panel.style.paddingBottom !== padding) panel.style.paddingBottom = padding;
+        }
         const blocked = document.getElementById('root')?.hasAttribute('inert') === true;
         const dialog = panel ?? (blocked ? document.querySelector('body > [role="presentation"] > [role="dialog"][aria-modal="true"]') : null);
         const now = Date.now();
@@ -381,9 +404,13 @@ global.__ModuleLoader__.load({ id, factory: require => {
       // The official client renders its own DOM, so a few nodes are adapted after
       // each mutation: the theme label, the composer seat, and the settings dialog.
       const adapt = (): void => {
-        const system = document.querySelector('[data-slot="sidebar.settings"] [class*="_cubeRow"] button:last-child');
-        const label = system?.lastChild;
-        if (label?.nodeType === Node.TEXT_NODE && label.textContent !== text.followTheme) label.textContent = text.followTheme;
+        for (const system of document.querySelectorAll(
+          '[data-slot="sidebar.settings"] [class*="_cubeRow"] button:last-child, '
+          + '[data-slot="settings.general.item"] [class*="_cubeRow"] button:last-child'
+        )) {
+          const label = system.lastChild;
+          if (label?.nodeType === Node.TEXT_NODE && label.textContent !== text.followTheme) label.textContent = text.followTheme;
+        }
 
         const seat = document.querySelector('[data-composer-seat]');
         if (seat) {
@@ -419,6 +446,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
         clearInterval(clock);
         clearInterval(settingsClock);
         settingsLoading.remove();
+        versions.remove();
         stopModelMenu();
         stopQueueDisplay();
         stopScrollbars();

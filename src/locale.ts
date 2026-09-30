@@ -1,6 +1,9 @@
 /** Copy owned by the VS Code surface; official client plugins retain their dictionaries. */
 
 const en = {
+  maxBackendVersion: 'Maximum supported backend version',
+  currentBackendVersion: 'Current backend version',
+  unknownVersion: 'Unknown',
   browserOpenFailed: 'The browser could not open this page.',
   remoteWebFile: 'This HTML file is on the remote host. Serve it over HTTP and open its forwarded URL in the browser.',
   remoteFolder: 'This folder is on the remote host and cannot be shown in your local system file manager.',
@@ -40,6 +43,9 @@ const en = {
 };
 
 const zh: typeof en = {
+  maxBackendVersion: '最高支持后台版本',
+  currentBackendVersion: '当前后台版本',
+  unknownVersion: '未知',
   browserOpenFailed: '浏览器无法打开此网页。',
   remoteWebFile: '此 HTML 文件位于远程主机，请通过 HTTP 提供该页面，再用浏览器打开转发后的网址。',
   remoteFolder: '此文件夹位于远程主机，无法在本机系统文件管理器中显示。',

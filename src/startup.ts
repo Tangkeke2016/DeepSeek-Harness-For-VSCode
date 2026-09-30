@@ -1,5 +1,8 @@
 /** Localized setup and loading surfaces available before the official client starts. */
 
+import { startupStyle } from './startup-style.ts';
+import { SWIM_UP, SWIM_DOWN } from './startup-whale.ts';
+
 const en = {
   install: 'Install official DSH',
   installing: 'Installing official DSH…',
@@ -64,14 +67,37 @@ export function startupHtml(language: string, nonce: string, whale: string, stat
   const escape = (s: string): string => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
   const setup = state.nodeError !== undefined || state.binError !== undefined;
   const saved = JSON.stringify(state.resume ?? {}).replace(/</g, '\\u003c');
-  const button = (action: string, label: string): string => `<button data-action="${action}">${escape(label)}</button>`;
+  const button = (action: string, label: string): string => `<button data-action="${action}"><span class="button-label"><span>${escape(label)}</span><span class="decoration" aria-hidden="true"><span class="sweep"><span class="highlight" style="display:block">${escape(label)}</span></span></span></span></button>`;
 
   // The page is self-contained: no remote styles, scripts, or fonts.
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'"><style>
-html,body{margin:0;min-height:100%;background:var(--vscode-editor-background);color:#fff}body.vscode-light,body.vscode-high-contrast-light{color:#000}body{font:13px var(--vscode-font-family);display:grid;place-items:center;min-height:100vh}.page{width:min(440px,calc(100% - 40px));text-align:center;padding:32px 0}.whale svg{width:58px;height:44px;color:#4d6bfe}h1{font-size:22px;font-weight:500;margin:20px 0 10px}.spinner{width:22px;height:22px;border:2px solid var(--vscode-widget-border,#8884);border-top-color:#4d6bfe;border-radius:50%;animation:spin 1s linear infinite;margin:24px auto 12px}@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.spinner{animation-duration:3s}}section{text-align:left;padding:16px;margin-top:20px;border:1px solid var(--vscode-widget-border,#8884);border-radius:10px}p{line-height:1.7;overflow-wrap:anywhere}button{font:inherit;padding:8px 12px;margin:4px;border:0;border-radius:5px;cursor:pointer;color:#fff;background:#4d6bfe}button:focus-visible,a:focus-visible{outline:2px solid var(--vscode-focusBorder)}a{color:var(--vscode-textLink-foreground)}
-</style></head><body><main class="page"><div class="whale" aria-hidden="true">${whale}</div><h1>${escape(t.tagline)}</h1>
+${startupStyle}
+</style></head><body data-loading="${!setup && !state.retry}"><main class="page"><div class="whale" aria-hidden="true">${whale}</div><h1>${escape(t.tagline)}</h1>
 ${setup ? '' : `${state.retry ? '' : '<div class="spinner" aria-hidden="true"></div>'}<p role="status">${escape(state.message ?? t.loading)}</p>${state.retry ? button('retry', t.retry) : ''}`}
 ${state.nodeError !== undefined ? `<section><strong>Node.js</strong><p>${escape(t.node)}</p><a href="https://nodejs.org/en/download" id="node-download">${escape(t.download)}</a></section>` : ''}
-${state.binError !== undefined ? `<section><strong>DSH bin.js</strong><p>${escape(t.bin).replace('{project}', `<a href="https://github.com/deepseek-ai/deepseek-harness" id="dsh-project">${escape(t.project)}</a>`)}${language.toLowerCase().startsWith('zh') ? `（${escape(t.installHint)}）` : ` (${escape(t.installHint)})`}</p>${button('setup-bin', t.binAction)}${button('setup-directory', t.directoryAction)}${state.nodeError === undefined ? button('setup-install', t.install) : ''}${state.installError ? `<p role="alert">${escape(state.installError)}</p>` : ''}</section>` : ''}
-</main><script nonce="${nonce}">const api=acquireVsCodeApi();api.setState({...api.getState(),...${saved}});for(const b of document.querySelectorAll('[data-action]'))b.onclick=()=>api.postMessage({kind:b.dataset.action});</script></body></html>`;
+${state.binError !== undefined ? `<section><p>${escape(t.bin).replace('{project}', `<a href="https://github.com/deepseek-ai/deepseek-harness" id="dsh-project">${escape(t.project)}</a>`)}${language.toLowerCase().startsWith('zh') ? `（${escape(t.installHint)}）` : ` (${escape(t.installHint)})`}</p>${button('setup-bin', t.binAction)}${button('setup-directory', t.directoryAction)}${state.nodeError === undefined ? button('setup-install', t.install) : ''}${state.installError ? `<p role="alert">${escape(state.installError)}</p>` : ''}</section>` : ''}
+</main><script nonce="${nonce}">const api=acquireVsCodeApi();api.setState({...api.getState(),...${saved}});for(const b of document.querySelectorAll('[data-action]'))b.onclick=()=>api.postMessage({kind:b.dataset.action});
+const whale=document.querySelector('.whale');
+const path=whale.querySelector('path');
+const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+let hovering=false;
+function syncSwim(){
+  const swim=!reduced.matches&&(document.body.dataset.loading==='true'||hovering);
+  whale.classList.toggle('swimming',swim);
+  if(!path)return;
+  const existing=path.querySelector('animate');
+  if(!swim){existing?.remove();return;}
+  if(existing)return;
+  const animation=document.createElementNS('http://www.w3.org/2000/svg','animate');
+  const rest=path.getAttribute('d');
+  const attrs={attributeName:'d',values:[rest,${JSON.stringify(SWIM_UP)},rest,${JSON.stringify(SWIM_DOWN)},rest].join(';'),keyTimes:'0;0.35;0.55;0.75;1',calcMode:'spline',keySplines:'0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1',dur:'1.6s',repeatCount:'indefinite'};
+  for(const [key,value] of Object.entries(attrs))animation.setAttribute(key,value);
+  path.append(animation);
+  animation.beginElement();
+}
+whale.addEventListener('mouseenter',()=>{hovering=true;syncSwim();});
+whale.addEventListener('mouseleave',()=>{hovering=false;syncSwim();});
+reduced.addEventListener('change',syncSwim);
+syncSwim();
+</script></body></html>`;
 }
