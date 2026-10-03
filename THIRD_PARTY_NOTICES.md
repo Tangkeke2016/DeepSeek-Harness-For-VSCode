@@ -1,6 +1,6 @@
 # Third-party notices
 
-The extension bundles the following runtime dependencies. Their license notices are reproduced below.
+The extension bundles the following runtime dependencies and artwork. Their license notices are reproduced below.
 
 ## graceful-fs 4.2.11
 
@@ -123,7 +123,7 @@ OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
 WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-## ws 8.21.0
+## ws 8.21.3
 
 Copyright (c) 2011 Einar Otto Stangvik <einaros@gmail.com>
 Copyright (c) 2013 Arnout Kazemier and contributors

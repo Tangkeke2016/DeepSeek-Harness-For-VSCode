@@ -53,8 +53,8 @@ global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.0', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.0', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.1', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.1', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
