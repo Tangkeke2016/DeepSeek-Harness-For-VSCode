@@ -31,8 +31,6 @@
 
 在 VS Code 设置中搜索 `deepseekHarness` 可查看路径：`harnessPath` 指定 DSH 目录，`binPath` 指定入口文件且优先级更高；通过引导选择目录会清除旧的 `binPath`。可选的 `home` 指定 DSH 数据目录，留空时使用 `DSH_HOME` 或 `~/.dsh`。
 
-设置页的“打开配置文件”在 VS Code 中打开当前 Web profile 的 `<DSH_HOME>/profiles/web/cordis.patch.yml`。`deepseekHarness.settingsPath` 可指定其他配置文件；仅旧版后台没有 Web profile 时回退到已有的 `settings.yaml`，手动连接的外部后台可通过该设置或文件选择指定路径。
-
 ## 停止后台与安装 DSH 插件
 
 **后台一旦启动，不会随聊天页关闭、VS Code 退出或 SSH 断开而自动关闭。** 需要停止时，在命令面板搜索 `DeepSeek Harness`：执行“关闭当前工作区后台”只停止当前工作区的后台，执行“关闭所有后台”停止本机全部由插件启动的后台。两条命令都不停止手动连接的外部后台。

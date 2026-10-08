@@ -31,8 +31,6 @@ The working directory is the current VS Code workspace. Each workspace owns its 
 
 Search VS Code settings for `deepseekHarness`: `harnessPath` selects the DSH directory, while `binPath` selects the entry file and takes precedence. Choosing a folder through setup clears the previous `binPath`. The optional `home` setting selects the DSH data directory; empty uses `DSH_HOME` or `~/.dsh`.
 
-Open configuration file in Settings opens `<DSH_HOME>/profiles/web/cordis.patch.yml` in VS Code. Use `deepseekHarness.settingsPath` to override this path. An existing legacy `settings.yaml` is used only when no Web profile exists; attached external backends use the override or a file picker.
-
 ## Stop the backend and install DSH plugins
 
 **Once started, the backend does not automatically stop when chat closes, VS Code exits, or SSH disconnects.** To stop it, search the Command Palette for `DeepSeek Harness`: **Stop Current Workspace Backend** stops only the backend of the current workspace, and **Stop All Backends** stops every backend this extension started on the machine. Neither command stops a manually attached external backend.
