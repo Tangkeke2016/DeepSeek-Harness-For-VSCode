@@ -14,7 +14,7 @@
 
 ## 安装与启动
 
-1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.2.1.vsix`。
+1. 从 [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases) 下载 `tangkeke-deepseek-harness-0.2.2.vsix`。
 2. 在 VS Code 扩展面板中选择“从 VSIX 安装…”，安装后按提示重新加载窗口。
 3. 打开并信任项目工作区，点击编辑器右上角鲸鱼按钮，或在命令面板搜索 `DeepSeek Harness` 打开聊天。
 4. 首次启动缺少 DSH 路径时，点击“一键安装官方 DSH”执行 `npx @deepseek-ai/dsh web` 并自动保存安装路径，或点击“选择 DSH 目录”“选择 bin 文件”。有效选择会保存并自动尝试加载；无效选择会提示并重新打开选择器，取消即可停止。
@@ -30,6 +30,8 @@
 | 已安装的 DSH 包 | `<包目录>/lib/bin.js` |
 
 在 VS Code 设置中搜索 `deepseekHarness` 可查看路径：`harnessPath` 指定 DSH 目录，`binPath` 指定入口文件且优先级更高；通过引导选择目录会清除旧的 `binPath`。可选的 `home` 指定 DSH 数据目录，留空时使用 `DSH_HOME` 或 `~/.dsh`。
+
+设置页的“打开配置文件”在 VS Code 中打开当前 Web profile 的 `<DSH_HOME>/profiles/web/cordis.patch.yml`。`deepseekHarness.settingsPath` 可指定其他配置文件；仅旧版后台没有 Web profile 时回退到已有的 `settings.yaml`，手动连接的外部后台可通过该设置或文件选择指定路径。
 
 ## 停止后台与安装 DSH 插件
 

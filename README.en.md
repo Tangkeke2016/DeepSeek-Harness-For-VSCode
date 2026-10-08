@@ -14,7 +14,7 @@ For Remote SSH, install the extension on the remote host and prepare Node.js and
 
 ## Install and start
 
-1. Download `tangkeke-deepseek-harness-0.2.1.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
+1. Download `tangkeke-deepseek-harness-0.2.2.vsix` from [Releases](https://github.com/Tangkeke2016/DeepSeek-Harness-For-VSCode/releases).
 2. Choose **Install from VSIX…** in the VS Code Extensions panel and reload when prompted.
 3. Open and trust a project workspace. Click the whale in the editor title bar, or search the Command Palette for `DeepSeek Harness` to open chat.
 4. If the DSH path is missing, choose **Install official DSH** to run `npx @deepseek-ai/dsh web` and save its installed path automatically, or choose **Select DSH folder** or **Select bin file**. Valid selections are saved and loading starts automatically. Invalid selections display an error and reopen the picker; cancel to stop.
@@ -30,6 +30,8 @@ The working directory is the current VS Code workspace. Each workspace owns its 
 | Installed DSH package | `<package directory>/lib/bin.js` |
 
 Search VS Code settings for `deepseekHarness`: `harnessPath` selects the DSH directory, while `binPath` selects the entry file and takes precedence. Choosing a folder through setup clears the previous `binPath`. The optional `home` setting selects the DSH data directory; empty uses `DSH_HOME` or `~/.dsh`.
+
+Open configuration file in Settings opens `<DSH_HOME>/profiles/web/cordis.patch.yml` in VS Code. Use `deepseekHarness.settingsPath` to override this path. An existing legacy `settings.yaml` is used only when no Web profile exists; attached external backends use the override or a file picker.
 
 ## Stop the backend and install DSH plugins
 

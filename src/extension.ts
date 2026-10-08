@@ -20,6 +20,7 @@ import { ClientAssets } from './assets.ts';
 import { MessageDelivery } from './delivery.ts';
 import { findNpx, installHarness } from './install.ts';
 import { openChatFile } from './open-file.ts';
+import { settingsDocument } from './settings-document.ts';
 
 type Surface = vscode.WebviewView | vscode.WebviewPanel;
 
@@ -274,7 +275,7 @@ class Application implements vscode.Disposable {
     const settings = vscode.workspace.getConfiguration('deepseekHarness');
     const configured = settings.get<string>('settingsPath', '');
     const home = settings.get<string>('home', '') || process.env.DSH_HOME?.trim() || join(homedir(), '.dsh');
-    let path = configured || (!this.attachedUrl ? join(resolve(cwd, expandHome(home)), 'settings.yaml') : undefined);
+    let path = configured || (!this.attachedUrl ? await settingsDocument(resolve(cwd, expandHome(home))) : undefined);
     if (!path) {
       const selected = await vscode.window.showOpenDialog({ canSelectMany: false, canSelectFolders: false,
         filters: { 'YAML / JSON': ['yaml', 'yml', 'json'] } });
