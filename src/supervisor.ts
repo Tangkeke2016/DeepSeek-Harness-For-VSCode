@@ -151,14 +151,15 @@ async function main(): Promise<void> {
     await pages.dispose();
     for (const client of clients.values()) client.end();
 
+    // Callers observe listener shutdown as completion; remove discovery before that signal.
+    const current = await discovery(directory);
+    if (current?.token === token) await rm(join(directory, 'server.json'), { force: true });
+
     // Stop accepting connections, then close the listeners that remain.
     const closed = new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     const force = setTimeout(() => server.closeAllConnections(), 1000);
     try { await closed; } finally { clearTimeout(force); }
 
-    // Remove only this supervisor's own discovery record.
-    const current = await discovery(directory);
-    if (current?.token === token) await rm(join(directory, 'server.json'), { force: true });
     if (!compromised) await release();
     await writes;
   })();
