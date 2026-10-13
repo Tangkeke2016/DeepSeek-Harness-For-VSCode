@@ -9,6 +9,7 @@ import { autoHideScrollbars } from './scrollbars.ts';
 import { dismissModelMenuOnSelection } from './model-menu.ts';
 import { deleteSession, type DeletableSession } from './delete-session.ts';
 import { routeFiles, type ResourceNavigation } from './file-navigation.ts';
+import { routeChanges } from './change-navigation.ts';
 
 interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
 interface Summary { id: string; cwd?: string; updatedAt: number; displayTitle: string; blank: boolean; running: boolean; retainedBy?: Record<string, number> }
@@ -53,8 +54,8 @@ global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.3', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.3', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.4', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.4', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
@@ -66,8 +67,20 @@ global.__ModuleLoader__.load({ id, factory: require => {
         sessionId => ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd,
         file => bridge.post({ kind: 'open-file', ...file }));
       let text = copy(ctx.locale.getSnapshot().active);
+      let collectionClick = false;
+      let collectionClickTimer: number | undefined;
+      const stopChanges = routeChanges(ctx.sidebarRight,
+        (selection, diff) => bridge.post({ kind: 'open-change-diff', ...selection, diff }),
+        error => { bridge.post({ kind: 'change-diff-failed' }); bridge.post({ kind: 'client-diagnostic', error: String(error) }); },
+        () => collectionClick);
       // Aborting this controller detaches every late callback of this view.
       const lifetime = new AbortController();
+      document.addEventListener('click', event => {
+        collectionClick = event.target instanceof Element
+          && event.target.closest('button')?.getAttribute('data-vscode-change-action') === 'collection';
+        if (collectionClickTimer !== undefined) window.clearTimeout(collectionClickTimer);
+        collectionClickTimer = window.setTimeout(() => { collectionClick = false; collectionClickTimer = undefined; }, 0);
+      }, { capture: true, signal: lifetime.signal });
 
       // Header: the session title on the left, the three actions on the right.
       const header = document.createElement('header'); header.id = 'vscode-header';
@@ -404,6 +417,25 @@ global.__ModuleLoader__.load({ id, factory: require => {
       // The official client renders its own DOM, so a few nodes are adapted after
       // each mutation: the theme label, the composer seat, and the settings dialog.
       const adapt = (): void => {
+        for (const card of document.querySelectorAll('[data-changed-files]')) {
+          for (const button of card.querySelectorAll('button')) {
+            const label = button.getAttribute('aria-label');
+            if (label && /侧边栏|sidebar/i.test(label)) button.setAttribute('data-vscode-change-action', 'review');
+            if (['review', 'collection'].includes(button.getAttribute('data-vscode-change-action') ?? '')
+              && label !== text.diffHint) button.setAttribute('aria-label', text.diffHint);
+            if (button.hasAttribute('aria-describedby') || button.hasAttribute('data-vscode-change-action')) {
+              if (button.title !== text.diffHint) button.title = text.diffHint;
+            }
+          }
+          const summary = card.querySelector('button');
+          if (!card.hasAttribute('data-single') && summary?.parentElement === card
+            && summary.getAttribute('data-vscode-change-action') !== 'collection') {
+            summary.setAttribute('data-vscode-change-action', 'collection');
+          }
+          for (const hint of card.querySelectorAll('[class*="_previewHint"]')) {
+            if (hint.textContent !== text.diffHint) hint.textContent = text.diffHint;
+          }
+        }
         for (const system of document.querySelectorAll(
           '[data-slot="sidebar.settings"] [class*="_cubeRow"] button:last-child, '
           + '[data-slot="settings.general.item"] [class*="_cubeRow"] button:last-child'
@@ -442,6 +474,8 @@ global.__ModuleLoader__.load({ id, factory: require => {
       const clock = setInterval(refreshTimes, 1000);
 
       return () => {
+        stopChanges();
+        if (collectionClickTimer !== undefined) window.clearTimeout(collectionClickTimer);
         stopFileNavigation();
         clearInterval(clock);
         clearInterval(settingsClock);

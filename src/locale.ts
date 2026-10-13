@@ -1,6 +1,17 @@
 /** Copy owned by the VS Code surface; official client plugins retain their dictionaries. */
 
 const en = {
+  diffReview: 'Changes',
+  diffFiles: '{count} files changed',
+  diffCopyLine: 'Copy this deleted line',
+  diffCopyDeletedBlock: 'Copy deleted lines',
+  diffCopyChangedBlock: 'Copy changed lines',
+  diffWrapOn: 'Word wrap: on',
+  diffWrapOff: 'Word wrap: off',
+  diffTurn: 'Turn',
+  diffHint: 'View this turn’s changes in VS Code',
+  diffFailed: 'Could not open the recorded changes. Reopen the session and try again.',
+  diffUnavailable: 'Change excerpts are unavailable: the file is binary, oversized, unchanged, or its comparison timed out.',
   maxBackendVersion: 'Maximum supported backend version',
   currentBackendVersion: 'Current backend version',
   unknownVersion: 'Unknown',
@@ -43,6 +54,17 @@ const en = {
 };
 
 const zh: typeof en = {
+  diffReview: '修改',
+  diffFiles: '{count} 个文件已更改',
+  diffCopyLine: '复制已删除的当前行',
+  diffCopyDeletedBlock: '复制已删除的行块',
+  diffCopyChangedBlock: '复制已更改的行块',
+  diffWrapOn: '自动换行：开',
+  diffWrapOff: '自动换行：关',
+  diffTurn: '轮次',
+  diffHint: '在 VS Code 中查看本轮修改',
+  diffFailed: '无法打开本轮修改，请重新打开会话后重试。',
+  diffUnavailable: '无法显示修改片段：文件为二进制、过大、无变化，或差异计算已超时。',
   maxBackendVersion: '最高支持后台版本',
   currentBackendVersion: '当前后台版本',
   unknownVersion: '未知',

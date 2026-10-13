@@ -2,6 +2,12 @@
 
 The extension bundles the following runtime dependencies and artwork. Their license notices are reproduced below.
 
+## Monaco Editor 0.57.0
+
+The read-only comparison page bundles Microsoft Monaco Editor under the MIT license. Its full license and upstream third-party notices are included in `resources/notices/monaco-LICENSE.txt` and `resources/notices/monaco-ThirdPartyNotices.txt`.
+
+Monaco also includes DOMPurify 3.4.15 (Apache-2.0 or MPL-2.0) and Marked 14.0.0 (MIT). Their licenses are included in `resources/notices/dompurify-LICENSE.txt`, `resources/notices/dompurify-LICENSE-MPL.txt`, and `resources/notices/marked-LICENSE.md`.
+
 ## graceful-fs 4.2.11
 
 The ISC License

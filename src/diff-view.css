@@ -1,0 +1,21 @@
+html,body{margin:0;padding:0;box-sizing:border-box;width:100%;height:100%;overflow:hidden;background:var(--vscode-editor-background);color:var(--vscode-editor-foreground)}body{--diff-gutter:16px;display:flex;flex-direction:column;font:13px var(--vscode-font-family)}header{display:flex;align-items:center;gap:12px;flex:none;padding:6px var(--diff-gutter);min-width:0}button{font:inherit;background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);border:0;padding:4px 10px;cursor:pointer}button:focus-visible{outline:1px solid var(--vscode-focusBorder)}#wrap{margin-left:auto;flex:none;white-space:nowrap}#wrap:hover{background:var(--vscode-button-secondaryHoverBackground,#8883)}#diff{flex:1;min-height:0;min-width:0}#error{padding:8px;color:var(--vscode-errorForeground)}
+.dsh-diff-gap{background:repeating-linear-gradient(135deg,transparent 0,transparent 5px,var(--vscode-editor-foreground,#888) 5px,var(--vscode-editor-foreground,#888) 6px);opacity:.15}
+.monaco-editor .line-numbers.dsh-diff-gap-number{text-align:right}
+#diff{position:relative}body:not(.diff-collection) #diff{display:flex}
+.single-diff{flex:1;min-width:0;min-height:0;margin-inline:calc(var(--diff-gutter) + 8px)}
+.page-scroll{position:absolute;top:0;right:0;bottom:0;width:6px;overflow-y:scroll;overflow-x:hidden;scrollbar-width:none}
+.page-scroll::-webkit-scrollbar{display:none}
+.page-scroll-thumb{position:absolute;right:0;width:6px;z-index:2;border-radius:3px;background:var(--dsh-scrollbar-color);touch-action:none}
+.diff-collection #diff{overflow:auto;overflow-x:hidden;padding:4px calc(var(--diff-gutter) - 6px);box-sizing:border-box;scrollbar-gutter:stable both-edges}
+.diff-collection #diff::-webkit-scrollbar{width:6px}.diff-collection #diff::-webkit-scrollbar-thumb{background:var(--dsh-scrollbar-color);border-radius:3px}
+@property --dsh-scrollbar-color{syntax:'<color>';inherits:true;initial-value:transparent}
+[data-conversation-scroll]{--dsh-scrollbar-color:transparent;transition:--dsh-scrollbar-color 1s linear;scrollbar-color:auto}
+[data-conversation-scroll][data-vscode-scrollbar-active],[data-conversation-scroll][data-vscode-scrollbar-near]{--dsh-scrollbar-color:var(--vscode-scrollbarSlider-background,#8888);transition-duration:0s}
+[data-vscode-scrollbar-horizontal]>.scrollbar.visible,[data-vscode-scrollbar-horizontal]>.scrollbar.invisible.fade{opacity:1!important;transition:none!important}[data-vscode-scrollbar-horizontal]>.scrollbar>.slider{background:var(--dsh-scrollbar-color)!important}
+[data-vscode-scrollbar-horizontal]:not([data-vscode-scrollbar-overflow])>.scrollbar.horizontal,[data-vscode-scrollbar-horizontal]>.scrollbar.vertical{display:none!important}
+.review-total{display:flex;align-items:center;gap:8px;flex:1;min-width:0}.review-total>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.diff-file{margin-bottom:4px;border:0;border-radius:8px;overflow:hidden;box-sizing:border-box;min-width:0}.diff-file summary{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;list-style:none;border-radius:8px;outline:1px solid transparent;outline-offset:-1px}
+.diff-file summary::marker{content:''}.diff-file summary:hover{background:var(--vscode-list-hoverBackground,#8881);outline-color:var(--vscode-widget-border,#8885)}.diff-file summary:focus-visible{outline-color:var(--vscode-focusBorder,#007fd4)}
+.file-path{flex:1;min-width:0;overflow-wrap:anywhere}.added,.deleted{flex:none}.added{color:var(--vscode-gitDecoration-addedResourceForeground,#73c991)}.deleted{color:var(--vscode-gitDecoration-deletedResourceForeground,#f48771)}
+.chevron{display:inline-flex;align-items:center;justify-content:center;flex:none;width:28px;height:28px;border-radius:7px;font-size:0;transition:transform .15s,background-color .15s}.chevron::before{content:'';width:12px;height:12px;background:currentColor;clip-path:polygon(35% 10%,75% 50%,35% 90%,25% 80%,55% 50%,25% 20%)}.chevron:hover{background:var(--vscode-toolbar-hoverBackground,#8883)}.diff-file[open] .chevron{transform:rotate(90deg)}
+.file-diff{height:clamp(180px,65vh,640px);margin-inline:8px;border:0}.file-unavailable{padding:8px;color:var(--vscode-descriptionForeground)}

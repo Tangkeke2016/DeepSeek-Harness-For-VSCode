@@ -2,7 +2,7 @@
 import { isWebPage } from './file-opening-rules.ts';
 export interface FileNavigation { path: string; cwd?: string; line?: number }
 export interface ResourceNavigation {
-  openResource(address: string, options?: { params?: { line?: number } }): void;
+  openResource(address: string, options?: { params?: { line?: number; index?: number } }): void;
   openTab?(kind: string, options?: { params?: { url?: string } }): void;
 }
 

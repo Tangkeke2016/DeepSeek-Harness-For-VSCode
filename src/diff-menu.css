@@ -1,0 +1,11 @@
+.monaco-menu {
+  min-width: 0 !important;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+}
+.monaco-menu .monaco-action-bar.vertical .action-label:not(.separator) {
+  padding-inline: 10px !important;
+}
+.monaco-menu .monaco-action-bar.vertical .keybinding:empty {
+  display: none;
+}

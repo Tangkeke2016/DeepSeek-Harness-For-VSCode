@@ -9,6 +9,8 @@ export class NativeChannel {
   private socket?: WebSocket;
   private retry?: ReturnType<typeof setTimeout>;
   private closed = false;
+  private pageRetirement = false;
+  private readonly retiring = new Set<string>();
 
   /** @param target - Host-only supervisor endpoint. @param owner - VS Code window identity.
    * @param receive - Native requests from an existing page.
@@ -32,12 +34,20 @@ export class NativeChannel {
     socket.on('close', () => {
       if (this.socket !== socket) return;
       this.socket = undefined;
+      this.pageRetirement = false;
       if (!this.closed) this.retry = setTimeout(() => this.connect(), 1000);
     });
     socket.on('message', bytes => {
       try {
         const message = record(JSON.parse(bytes.toString()));
+        if (message.kind === 'native-ready' && message.pageRetirement === true) {
+          this.pageRetirement = true;
+          for (const epoch of this.retiring) socket.send(JSON.stringify({ kind: 'retire-page', epoch }));
+          return;
+        }
+        if (message.kind === 'page-retired' && typeof message.epoch === 'string') { this.retiring.delete(message.epoch); return; }
         if (typeof message.epoch !== 'string') return;
+        if (this.retiring.has(message.epoch)) return;
         const packet = record(message.packet);
         void this.receive(message.epoch, packet).catch(error => {
           this.send(message.epoch as string, { kind: 'failure', id: packet.id, error: String(error) });
@@ -54,6 +64,15 @@ export class NativeChannel {
     if (this.socket?.readyState !== WebSocket.OPEN) return false;
     this.socket.send(JSON.stringify({ epoch, packet }));
     return true;
+  }
+
+  /** @param epoch - Normally closed or replaced page; abrupt host loss keeps its capability recoverable. */
+  retire(epoch: string): void {
+    if (this.closed) return;
+    this.retiring.add(epoch);
+    if (this.pageRetirement && this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ kind: 'retire-page', epoch }));
+    }
   }
 
   /** @param epoch - Page identity. @param maxBytes - Per-page transfer budget.
@@ -75,6 +94,7 @@ export class NativeChannel {
   /** Stop native delivery without disconnecting the browser or official backend. */
   dispose(): void {
     this.closed = true;
+    this.retiring.clear();
     clearTimeout(this.retry);
     this.socket?.terminate();
   }

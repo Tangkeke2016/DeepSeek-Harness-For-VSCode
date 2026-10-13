@@ -74,7 +74,8 @@ export class SharedBackend {
     if (!this.pending) {
       const pending = this.connect(options);
       this.pending = pending;
-      void pending.catch(() => { if (this.pending === pending) this.pending = undefined; });
+      const clear = (): void => { if (this.pending === pending) this.pending = undefined; };
+      void pending.then(clear, clear);
     }
     return this.pending;
   }
@@ -170,13 +171,5 @@ export class SharedBackend {
         await released.body?.cancel();
       } catch (error) { /* A disconnected supervisor retains no usable lease; handoff will fail closed. */ }
     };
-  }
-
-  /** Explicitly stop the server shared by this user's windows. */
-  async dispose(): Promise<void> {
-    // A failed startup may still have published a supervisor that must be stopped.
-    if (this.pending) { try { await this.pending; } catch { /* Failed startup may still have published a supervisor to stop. */ } }
-    const target = this.target ?? await discovery(this.directory);
-    if (target && !await probe(target, true)) throw new Error('Shared backend did not acknowledge stop; inspect supervisor.log');
   }
 }

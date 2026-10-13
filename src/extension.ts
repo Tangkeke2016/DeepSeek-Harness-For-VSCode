@@ -21,6 +21,7 @@ import { MessageDelivery } from './delivery.ts';
 import { findNpx, installHarness } from './install.ts';
 import { openChatFile } from './open-file.ts';
 import { settingsDocument } from './settings-document.ts';
+import { DiffEditor } from './diff-editor.ts';
 
 type Surface = vscode.WebviewView | vscode.WebviewPanel;
 
@@ -83,6 +84,7 @@ export function activate(context: vscode.ExtensionContext): void {
 export async function deactivate(): Promise<void> { await app?.shutdown(); app = undefined; }
 
 class Application implements vscode.Disposable {
+  private readonly diffs = new DiffEditor();
   private readonly backends: WorkspaceBackends;
   private readonly nativeChannels = new Map<string, NativeChannel>();
   private readonly retainedPages = new Map<string, string>();
@@ -111,7 +113,7 @@ class Application implements vscode.Disposable {
       line => this.output.appendLine(line),
       vscode.env.sessionId,
     );
-    this.subscriptions.push(this.output,
+    this.subscriptions.push(this.output, this.diffs,
       // Panel serializers restore the editor and settings tabs VS Code reopens after a reload.
       ...(['deepseekHarness.editor', 'deepseekHarness.settings'] as const).map(kind => vscode.window.registerWebviewPanelSerializer(kind, {
         deserializeWebviewPanel: async (panel, state: unknown) => {
@@ -231,6 +233,8 @@ class Application implements vscode.Disposable {
       if (view) { await this.receive(view, { ...message, epoch }); return; }
       // Orphaned panels have no VS Code handle, but native commands still belong to their window.
       switch (message.kind) {
+        case 'open-change-diff': await this.openDiff(message); break;
+        case 'change-diff-failed': this.report(copy(vscode.env.language).diffFailed); break;
         case 'open-file': await openChatFile(message, workspace).catch(error => this.report(String(error))); break;
         case 'new-editor': this.openEditor(workspace); break;
         case 'settings': this.openSettings(workspace); break;
@@ -290,6 +294,14 @@ class Application implements vscode.Disposable {
     }
     const document = await vscode.workspace.openTextDocument(uri);
     await vscode.window.showTextDocument(document, { preview: false, viewColumn: vscode.ViewColumn.Active });
+  }
+
+  /** @param message - Wire request carrying a recorded diff. @returns Completion of the native action. */
+  private async openDiff(message: Record<string, unknown>): Promise<void> {
+    try {
+      if (!Number.isSafeInteger(message.turn) || Number(message.turn) < 1) throw new Error('Invalid diff turn');
+      await this.diffs.open(message.diff, Number(message.turn), this.context.extensionPath);
+    } catch (error) { this.output.appendLine(redact(String(error))); this.report(copy(vscode.env.language).diffFailed); }
   }
 
   /** @returns The workspace folder every non-editor view runs in. */
@@ -393,7 +405,6 @@ class Application implements vscode.Disposable {
       this.views.delete(view);
       if (this.sidebar === view) this.sidebar = undefined;
       if (this.settings === view) this.settings = undefined;
-      void view.relay?.dispose().catch(error => this.report(error));
     });
 
     void this.load(view);
@@ -516,6 +527,7 @@ class Application implements vscode.Disposable {
 
   /** @param view - The view to (re)connect and publish. */
   private async loadView(view: View): Promise<void> {
+    this.retirePage(view);
     clearTimeout(view.recoveryTimer);
     // Invalidate the previous generation before tearing it down.
     view.detached = false;
@@ -536,7 +548,6 @@ class Application implements vscode.Disposable {
     finally { await oldRelease?.(); }
     if (!active()) return;
 
-    const text = copy(vscode.env.language);
     const timeout = vscode.workspace.getConfiguration('deepseekHarness').get('webviewTimeoutSeconds', 60) * 1000;
     const phase = (name: string): void => this.output.appendLine(`view ${generation}: ${name}`);
     phase('loading');
@@ -654,8 +665,9 @@ class Application implements vscode.Disposable {
     }
   }
 
-  /** @param view - The view whose connection must be dropped without touching the backend. */
-  private reset(view: View): Promise<void> {
+  /** @param view - The view whose connection must be dropped without touching the backend. @param preservePage - Keep its capability across extension host shutdown. */
+  private reset(view: View, preservePage = false): Promise<void> {
+    if (!preservePage) this.retirePage(view);
     clearTimeout(view.recoveryTimer);
     view.recoveryTimer = undefined;
     // Bumping the generation invalidates every callback still in flight.
@@ -675,6 +687,14 @@ class Application implements vscode.Disposable {
       try { await (relay ? relay.dispose() : connection?.dispose()); }
       finally { await release?.(); }
     })().catch(error => this.output.appendLine(redact(String(error))));
+  }
+
+  /** Forget normally closed epochs while preserving pages after an abrupt host loss. */
+  private retirePage(view: View): void {
+    if (!view.epoch) return;
+    this.retainedPages.delete(view.epoch);
+    if (this.focusedPage?.epoch === view.epoch) this.focusedPage = undefined;
+    this.channelFor(view.cwd)?.retire(view.epoch);
   }
 
   /** @param view - The view whose connection failed. @param error - The failure to show. */
@@ -816,6 +836,8 @@ class Application implements vscode.Disposable {
         break;
       case 'session-create-failed': await this.sessionCreateFailed(String(message.error), view.cwd); break;
       case 'client-diagnostic': this.output.appendLine(`client: ${redact(String(message.error))}`); break;
+      case 'open-change-diff': await this.openDiff(message); break;
+      case 'change-diff-failed': this.report(copy(vscode.env.language).diffFailed); break;
       case 'settings': this.openSettings(view.cwd); break;
       case 'open-settings-document': {
         if (typeof message.id !== 'string') throw new Error('Invalid settings document request');
@@ -984,7 +1006,7 @@ class Application implements vscode.Disposable {
     for (const view of this.views) {
       view.reconnectPending = false;
       view.reconnectAvailable = false;
-      await this.reset(view);
+      await this.reset(view, true);
     }
     for (const channel of this.nativeChannels.values()) channel.dispose();
     this.nativeChannels.clear();

@@ -2,7 +2,7 @@
   "name": "tangkeke-deepseek-harness",
   "displayName": "DeepSeek Harness – Everything is a Plugin",
   "description": "Use the official DeepSeek Harness backend in your VS Code workspace.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "TangKeke",
   "private": true,
   "type": "module",
@@ -199,6 +199,9 @@
     "@types/ws": "^8.5.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.25.0",
+    "monaco-editor": "0.57.0",
+    "playwright": "1.61.1",
+    "tsx": "4.23.13",
     "typescript": "~5.9.0"
   },
   "author": "唐可可",

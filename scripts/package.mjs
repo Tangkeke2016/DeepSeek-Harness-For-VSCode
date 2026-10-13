@@ -18,5 +18,8 @@ for (const args of [
 ]) {
   const result = spawnSync(process.execPath, args, { cwd, stdio: 'inherit', windowsHide: true });
   if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  if (result.status !== 0) {
+    console.error(`Packaging step failed: ${args[0]} (exit ${result.status ?? 'unknown'}, signal ${result.signal ?? 'none'})`);
+    process.exit(1);
+  }
 }

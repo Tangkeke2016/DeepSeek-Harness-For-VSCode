@@ -14,6 +14,7 @@ interface Page {
   relay?: WebRelay;
   expires: number;
   reservation: boolean;
+  retired?: boolean;
   state: Map<string, Record<string, unknown>>;
 }
 
@@ -99,6 +100,7 @@ export class DetachedPages {
     if (!/^[\w-]{1,128}$/.test(owner)) { socket.close(1008); return; }
     this.hosts.get(owner)?.close(1000);
     this.hosts.set(owner, socket);
+    this.send(socket, { kind: 'native-ready', pageRetirement: true });
     for (const page of this.pages.values()) {
       if (page.owner !== owner) continue;
       if (page.socket) this.send(page.socket, { kind: 'host-status', ready: true });
@@ -115,6 +117,17 @@ export class DetachedPages {
       try {
         const value = record(JSON.parse(bytes.toString()));
         if (value.kind === 'ping') { this.send(socket, { kind: 'pong' }); return; }
+        if (value.kind === 'retire-page' && typeof value.epoch === 'string') {
+          for (const [key, page] of this.pages) {
+            if (page.owner !== owner || page.epoch !== value.epoch) continue;
+            page.retired = true;
+            this.pages.delete(key);
+            page.socket?.terminate();
+            if (page.relay) this.track(page.relay.dispose());
+          }
+          this.send(socket, { kind: 'page-retired', epoch: value.epoch });
+          return;
+        }
         for (const page of this.pages.values()) {
           if (page.owner === owner && page.epoch === value.epoch && page.socket) this.send(page.socket, value.packet);
         }
@@ -146,7 +159,7 @@ export class DetachedPages {
         if (owned.socket === socket) {
           owned.socket = undefined;
           owned.relay = undefined;
-          owned.expires = Date.now() + 24 * 60 * 60 * 1000;
+          if (!owned.retired) owned.expires = Date.now() + 24 * 60 * 60 * 1000;
         }
         this.track(relay.dispose());
       });
@@ -161,7 +174,7 @@ export class DetachedPages {
           }
           if (!ready) { socket.close(1013); return; }
           this.track(relay.receive(value).then(handled => {
-            if (handled) return;
+            if (handled || owned.retired) return;
             if (['client-ready', 'session', 'focus'].includes(String(value.kind))) owned.state.set(String(value.kind), value);
             const host = this.hosts.get(owned.owner);
             if (host?.readyState === WebSocket.OPEN) this.send(host, { epoch: owned.epoch, packet: value });

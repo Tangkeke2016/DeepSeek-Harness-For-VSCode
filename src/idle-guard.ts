@@ -94,7 +94,7 @@ export function apply(ctx: GuardContext, config: Config): void {
         method: 'POST', headers: { authorization: `Bearer ${config.token}` },
         body: JSON.stringify({ port: address.port }),
         signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
-      }).then(response => response.body?.cancel()).catch(error => {
+      }).then(response => response.body?.cancel()).catch(_error => {
         // Missing registration disables handoff; normal conversations still work.
         if (!controller.signal.aborted) console.error('VS Code workspace handoff registration failed');
       });

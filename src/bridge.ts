@@ -7,6 +7,7 @@ import { bridgePluginResources } from './plugin-resources.ts';
 import { followEditorTheme } from './theme.ts';
 import { MessageAssembly } from './assembly.ts';
 import { visibleDeadline } from './deadline.ts';
+import { copy } from './locale.ts';
 
 // Themable queries and proxied plugin resources are released once the page unloads.
 window.addEventListener('unload', followEditorTheme(), { once: true });
@@ -53,7 +54,7 @@ const api = { postMessage: (value: Record<string, unknown>): void => {
 } };
 
 const nativeFetch = window.fetch.bind(window);
-const requests = new Map<string, { resolve(value: Packet): void; reject(error: Error): void }>();
+const requests = new Map<string, { kind: string; resolve(value: Packet): void; reject(error: Error): void }>();
 const streams = new Map<string, StreamQueue>();
 const assembly = new MessageAssembly(global.__VSCODE_DSH_CONFIG__.maxTransferBytes * 4);
 const timeoutMs = global.__VSCODE_DSH_CONFIG__.requestTimeoutMs ?? 60000;
@@ -81,7 +82,7 @@ function decode(value: string): Uint8Array<ArrayBuffer> {
  * @param kind - Host message kind, for example `fetch` or `bundle`.
  * @param payload - Kind-specific fields.
  * @param signal - Optional cancellation; aborting also tells the host to stop.
- * @returns The reply packet.
+ * @returns The reply packet. Missing replies time out; native actions also fail on host loss without replaying their effects.
  */
 function call(kind: string, payload: Record<string, unknown>, signal?: AbortSignal): Promise<Packet> {
   const id = crypto.randomUUID();
@@ -92,15 +93,16 @@ function call(kind: string, payload: Record<string, unknown>, signal?: AbortSign
     const abort = (): void => { requests.delete(id); api.postMessage({ kind: 'abort', id }); failed(new DOMException('Aborted', 'AbortError')); };
     if (signal?.aborted) { failed(new DOMException('Aborted', 'AbortError')); return; }
 
-    requests.set(id, { resolve: finish, reject: failed });
+    requests.set(id, { kind, resolve: finish, reject: failed });
 
-    // Resource transfers get a deadline that only elapses while the page is visible.
-    if (kind === 'fetch' || kind === 'bundle') cancelDeadline = visibleDeadline(() => {
+    // Every request settles within visible time, including native actions whose reply may be lost.
+    cancelDeadline = visibleDeadline(() => {
       requests.delete(id);
-      api.postMessage({ kind: 'abort', id });
+      const resource = kind === 'fetch' || kind === 'bundle';
+      if (resource) api.postMessage({ kind: 'abort', id });
       const message = `${kind} response timed out`;
       failed(new Error(message));
-      fault(message);
+      if (resource) fault(message);
     }, timeoutMs);
     signal?.addEventListener('abort', abort, { once: true });
     api.postMessage({ kind, id, ...payload });
@@ -196,7 +198,13 @@ async function* openStream(endpoint: string, payload: unknown, signal: AbortSign
 function receive(packet: Packet): void {
   if (!packet || typeof packet.kind !== 'string') return;
 
-  if (packet.kind === 'reply' || packet.kind === 'failure') {
+  if (packet.kind === 'host-unavailable') {
+    for (const [id, request] of requests) {
+      if (request.kind === 'fetch' || request.kind === 'bundle') continue;
+      requests.delete(id);
+      request.reject(new Error(copy(config.language).reconnecting));
+    }
+  } else if (packet.kind === 'reply' || packet.kind === 'failure') {
     // A correlated answer settles exactly one request.
     const request = requests.get(packet.id!);
     requests.delete(packet.id!);

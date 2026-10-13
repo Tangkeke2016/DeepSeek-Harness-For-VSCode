@@ -15,7 +15,7 @@ export class PageCarrier {
   private badge?: HTMLElement;
 
   /** @param endpoint - Forwarded supervisor URL and page-only credential.
-   * @param language - VS Code locale. @param receive - Existing bridge packet receiver.
+   * @param language - VS Code locale. @param receive - Bridge packets, including host-unavailable to settle native requests while backend streams continue.
    * @param lost - Fail pending operations without replaying them.
    */
   constructor(private readonly endpoint: { url: string; token: string }, private readonly language: string,
@@ -52,18 +52,18 @@ export class PageCarrier {
           clearTimeout(this.deadline);
           this.ready = true;
           this.lastPong = Date.now();
-          this.notice(false);
+          this.hostStatus(value.host !== false);
           const reconnect = this.opened;
           this.opened = true;
           for (const packet of this.initial.splice(0)) this.post(packet);
           if (reconnect) this.receive({ kind: 'reconnect-client' });
         } else if (value.kind === 'native-unavailable') {
-          this.notice(true);
+          this.hostStatus(false);
         } else if (value.kind === 'host-status') {
-          if (value.ready === true) this.notice(false);
+          this.hostStatus(value.ready === true);
         } else if (value.kind === 'pong') {
           this.lastPong = Date.now();
-          if (value.host === true) this.notice(false);
+          if (typeof value.host === 'boolean') this.hostStatus(value.host);
         } else this.receive(value);
       } catch (error) { socket.close(1008); }
     };
@@ -82,6 +82,11 @@ export class PageCarrier {
         this.retry = setTimeout(() => this.connect(), 1000);
       }
     };
+  }
+
+  private hostStatus(available: boolean): void {
+    this.notice(!available);
+    if (!available) this.receive({ kind: 'host-unavailable' });
   }
 
   /** @param packet - One operation, transmitted at most once. */

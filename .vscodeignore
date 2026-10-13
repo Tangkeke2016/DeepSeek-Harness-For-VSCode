@@ -9,6 +9,10 @@
 !dist/idle-guard.mjs
 !dist/bridge.js
 !dist/adapter.js
+!dist/diff-view.js
+!dist/diff-locale.js
+!dist/diff-view.css
+!dist/diff-worker.js
 !dist/*.LEGAL.txt
 !webview/style.css
 !resources/**

@@ -18,8 +18,8 @@ const EDITING_KEYS = new Set([
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', ' ', 'Spacebar',
 ]);
 
-/** @returns Disposal of listeners, timers and presentation attributes. */
-export function autoHideScrollbars(): () => void {
+/** @returns Disposal of listeners, timers and presentation attributes, with timed reveal for layout changes. */
+export function autoHideScrollbars(): (() => void) & { reveal(scroll: HTMLElement): void } {
   const timers = new Map<HTMLElement, ReturnType<typeof setTimeout>>();
   let near: HTMLElement | undefined;
   /** Last input that really scrolled a conversation; reflow fires scroll too. */
@@ -90,6 +90,12 @@ export function autoHideScrollbars(): () => void {
   /** Whether the pointer sits on the edge that paints the bar; the other edge is empty. */
   const onGutter = (event: PointerEvent, scroll: HTMLElement): boolean => {
     const bounds = scroll.getBoundingClientRect();
+    if (scroll.hasAttribute('data-vscode-scrollbar-horizontal')) {
+      const width = scroll.querySelector('.scrollbar.horizontal')?.getBoundingClientRect().height ?? MIN_GUTTER_PX;
+      return scroll.hasAttribute('data-vscode-scrollbar-overflow')
+        && event.clientX >= bounds.left && event.clientX <= bounds.right
+        && event.clientY >= bounds.bottom - width * 2 && event.clientY <= bounds.bottom + width;
+    }
     if (event.clientY < bounds.top || event.clientY > bounds.bottom) return false;
     const width = barWidth(scroll);
     if (getComputedStyle(scroll).direction === 'rtl') return event.clientX <= bounds.left + width;
@@ -97,9 +103,13 @@ export function autoHideScrollbars(): () => void {
   };
 
   const pointer = (event: PointerEvent): void => {
-    const scroll = container(event.target);
+    let scroll = container(event.target);
     leave();
-    if (!scroll || !onGutter(event, scroll)) return;
+    if (!scroll || !onGutter(event, scroll)) {
+      scroll = Array.from(document.querySelectorAll<HTMLElement>('[data-vscode-scrollbar-horizontal][data-vscode-scrollbar-overflow]'))
+        .find(candidate => onGutter(event, candidate)) ?? null;
+    }
+    if (!scroll) return;
     near = scroll;
     scroll.setAttribute('data-vscode-scrollbar-near', '');
   };
@@ -110,21 +120,21 @@ export function autoHideScrollbars(): () => void {
   document.addEventListener('scroll', scrolled, true);
   document.addEventListener('touchstart', touched, { passive: true });
   document.addEventListener('touchmove', touched, { passive: true });
-  document.addEventListener('wheel', wheeled, { passive: true });
+  document.addEventListener('wheel', wheeled, { passive: true, capture: true });
 
-  return () => {
+  return Object.assign(() => {
     document.removeEventListener('keydown', keyed, true);
     document.removeEventListener('pointermove', pointer);
     document.removeEventListener('pointerleave', leave);
     document.removeEventListener('scroll', scrolled, true);
     document.removeEventListener('touchstart', touched);
     document.removeEventListener('touchmove', touched);
-    document.removeEventListener('wheel', wheeled);
+    document.removeEventListener('wheel', wheeled, true);
     leave();
     for (const [scroll, timer] of timers) {
       clearTimeout(timer);
       scroll.removeAttribute('data-vscode-scrollbar-active');
     }
     timers.clear();
-  };
+  }, { reveal });
 }

@@ -1,7 +1,7 @@
 /** Detached owner of the unchanged official dsh Web process. */
 import { createServer, type ServerResponse } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { writeFile, rename, rm, appendFile } from 'node:fs/promises';
+import { writeFile, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import lockfile from 'proper-lockfile';
@@ -10,6 +10,7 @@ import { Backend, type BackendOptions } from './backend.ts';
 import { discovery, probe, type SharedStatus } from './shared-backend.ts';
 import { redact } from './protocol.ts';
 import { findCli } from './runtime.ts';
+import { SupervisorLog } from './supervisor-log.ts';
 
 /**
  * Own the official Web server for one user until an explicit stop.
@@ -25,15 +26,8 @@ async function main(): Promise<void> {
 
   // Keep a bounded, credential-redacted log beside the discovery record.
   const logPath = join(directory, 'supervisor.log');
-  let logBytes = 0;
-  let writes = Promise.resolve();
-  const log = (line: string): void => {
-    const text = `${new Date().toISOString()} ${redact(line)}\n`;
-    if (logBytes + Buffer.byteLength(text) > 1024 * 1024) return;
-    logBytes += Buffer.byteLength(text);
-    writes = writes.then(() => appendFile(logPath, text, { mode: 0o600 }));
-    void writes.catch(() => { /* Logging failure does not change backend ownership. */ });
-  };
+  const diagnostics = new SupervisorLog(logPath, error => console.error(`Supervisor log write failed: ${redact(String(error))}`));
+  const log = (line: string): void => diagnostics.write(line);
 
   const backend = new Backend(log, () => {
     // The owned backend exiting on its own ends this supervisor's reason to live.
@@ -161,7 +155,7 @@ async function main(): Promise<void> {
     try { await closed; } finally { clearTimeout(force); }
 
     if (!compromised) await release();
-    await writes;
+    await diagnostics.flush();
   })();
 
   try {
