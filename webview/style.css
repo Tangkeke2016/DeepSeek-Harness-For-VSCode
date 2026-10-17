@@ -48,6 +48,8 @@ body[data-dsh-vscode] [data-phase='hero'] [data-composer-seat] { flex: 1; displa
 body[data-dsh-vscode] [data-phase='hero'] [class*='_composerStack'] { display: flex; flex-direction: column; flex: 1; align-self: stretch; width: 100%; padding-bottom: 8px; }
 body[data-dsh-vscode] [data-phase='hero'] [class*='_composerStack'] > div:first-child { flex: 1; display: flex; align-items: center; justify-content: center; }
 body[data-dsh-vscode] [class*='_heroWorkspaceRow'] { display: none; }
+body[data-dsh-vscode] [class*='_heroWorkspaceRow']:has([data-slot='conversation.hero.options'] > *) { display: flex; }
+body[data-dsh-vscode] [class*='_heroWorkspaceRow']:has([data-slot='conversation.hero.options'] > *) > :not([class*='_heroOptions']) { display: none; }
 body[data-dsh-vscode] [data-composer-seat] { position: sticky; bottom: 0; }
 #vscode-contexts { display: flex; flex-direction: column; gap: 4px; margin: 8px 8px 0; padding: 0; align-self: stretch; }
 body[data-dsh-vscode] [data-composer-card]:has(#vscode-contexts:not(:empty)) { padding-top: 0; }

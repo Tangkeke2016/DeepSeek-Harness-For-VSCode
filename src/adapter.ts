@@ -54,8 +54,8 @@ global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.4', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.4', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.5', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.5', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
@@ -361,6 +361,8 @@ global.__ModuleLoader__.load({ id, factory: require => {
       settingsLoading.append(settingsMessage, settingsRetry);
       if (config.mode === 'settings') document.body.append(settingsLoading);
       const requestSettings = (): void => {
+        const settingsItem = [...document.querySelectorAll<HTMLButtonElement>('button[role="menuitem"][aria-keyshortcuts]')]
+          .find(button => button.textContent?.trim().startsWith(text.settings));
         // The account menu can own the visible launcher, so prefer the seat
         // whose button announces a dialog.
         const trigger = document.querySelector<HTMLButtonElement>('[data-slot="sidebar.settings"] button[aria-haspopup="dialog"]')
@@ -393,9 +395,9 @@ global.__ModuleLoader__.load({ id, factory: require => {
         const dialog = panel ?? (blocked ? document.querySelector('body > [role="presentation"] > [role="dialog"][aria-modal="true"]') : null);
         const now = Date.now();
         const wait = settingsSeen ? SETTINGS_REOPEN_MS : SETTINGS_LAUNCH_MS;
-        if (!dialog && trigger && trigger.getAttribute('aria-expanded') !== 'true'
+        if (!dialog && (settingsItem || trigger) && (settingsItem || trigger?.getAttribute('aria-expanded') !== 'true')
           && now - settingsRequestedAt >= wait && settingsRequests < SETTINGS_REQUESTS) {
-          settingsRequests += 1; settingsRequestedAt = now; trigger.click();
+          settingsRequests += 1; settingsRequestedAt = now; (settingsItem ?? trigger)?.click();
         }
         if (dialog) { dialog.setAttribute('data-vscode-settings', ''); if (!settingsSeen) bridge.post({ kind: 'client-ready' }); settingsSeen = true; settingsRequests = 0; }
         // The dedicated settings tab stays a settings surface until its native tab is closed.
