@@ -12,6 +12,8 @@ h1{font-size:22px;font-weight:500;margin:20px 0 10px}
 .spinner{width:22px;height:22px;border:2px solid var(--vscode-widget-border,#8884);border-top-color:var(--startup-whale);border-radius:50%;animation:spin 1s linear infinite;margin:24px auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
 section{text-align:left;padding:16px;margin-top:20px;border:1px solid var(--vscode-widget-border,#8884);border-radius:10px}
+.bin-setup>p:first-child{margin-top:4px}
+.setup-actions{display:flex;flex-wrap:wrap}
 p{line-height:1.7;overflow-wrap:anywhere}
 button{font:inherit;max-width:calc(100% - 8px);overflow-wrap:anywhere;padding:8px 12px;margin:4px;border:1px solid color-mix(in srgb,var(--startup-ink) 35%,transparent);border-radius:5px;cursor:pointer;color:var(--startup-ink);background:color-mix(in srgb,var(--startup-ink) 10%,transparent)}
 button:hover,button:focus-visible{background:color-mix(in srgb,var(--startup-ink) 16%,transparent)}

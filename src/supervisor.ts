@@ -67,7 +67,7 @@ async function main(): Promise<void> {
 
     if (request.url === '/status' && request.method === 'GET') {
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify({ ...status, pageRelay: 1, connections: clients.size + pages.connections }));
+      response.end(JSON.stringify({ ...status, pageRelay: 1, pluginUpdates: 1, connections: clients.size + pages.connections }));
     } else if (request.url === '/pages' && request.method === 'POST') {
       if (checkingIdle) { response.writeHead(409).end(); return; }
       pages.register(request, response);

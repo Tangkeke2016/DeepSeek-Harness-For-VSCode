@@ -99,7 +99,8 @@ export class Transport {
     const headers = new Headers(init.headers);
     headers.set('Cookie', this.cookie);
     headers.set('Origin', this.origin);
-    const signals = [this.abort.signal, AbortSignal.timeout(60_000)];
+    // Plugin events stay open for the page lifetime; finite requests keep their deadline.
+    const signals = path === '/plugins/events' ? [this.abort.signal] : [this.abort.signal, AbortSignal.timeout(60_000)];
     if (init.signal) signals.push(init.signal);
     return fetch(target, { ...init, headers, redirect: 'error', signal: AbortSignal.any(signals) });
   }

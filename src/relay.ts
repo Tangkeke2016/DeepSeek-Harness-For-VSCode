@@ -1,14 +1,15 @@
 /** Per-Webview request ownership; no backend credentials cross the message bridge. */
 import { Transport } from './transport.ts';
 import { record, string, array, redact } from './protocol.ts';
-import { presentation } from './messages.ts';
+import { presentation, PLUGIN_EVENTS } from './messages.ts';
+import { readPluginEvents } from './plugin-events.ts';
 
 /** Authenticated relay using the official HTTP and stream APIs. */
 export class WebRelay {
   private readonly requests = new Map<string, AbortController>();
   private readonly streams = new Map<string, () => void>();
   private disposed = false;
-  private readonly pending = new Set<Promise<boolean>>();
+  private readonly pending = new Set<Promise<unknown>>();
 
   /** @param transport - This view's authenticated carrier. @param send - Webview delivery. @param maxBytes - Buffered transfer limit. @param bundleFetch - Optional backend-lifetime immutable resource cache. */
   constructor(readonly transport: Pick<Transport, 'request' | 'open' | 'dispose'>, private readonly send: (value: unknown) => void, private readonly maxBytes: number, private readonly bundleFetch?: (path: string, signal: AbortSignal) => Promise<Response>) {}
@@ -43,6 +44,20 @@ export class WebRelay {
 
         const endpoint = string(message.endpoint);
         if (!/^[\w$.-]+(?:\/[\w$.-]+)*$/.test(endpoint)) throw new Error('Invalid stream endpoint');
+
+        if (endpoint === PLUGIN_EVENTS) {
+          const controller = new AbortController();
+          const cancel = (): void => { controller.abort(); };
+          this.streams.set(id, cancel);
+          const task = readPluginEvents((path, init) => this.transport.request(path, init), controller.signal, this.maxBytes,
+            value => this.emit({ kind: 'stream-item', id, value })).then(
+            () => { if (!controller.signal.aborted) this.emit({ kind: 'stream-end', id }); },
+            error => { if (!controller.signal.aborted) this.emit({ kind: 'stream-error', id, error: redact(String(error)) }); },
+          ).finally(() => { if (this.streams.get(id) === cancel) this.streams.delete(id); });
+          this.pending.add(task);
+          void task.then(() => this.pending.delete(task), () => this.pending.delete(task));
+          return true;
+        }
 
         const args = record(record(message.payload).args);
         const cancel = this.transport.open(endpoint, args,

@@ -32,6 +32,8 @@ export interface WebAssets {
 
 /** One view's workspace and launch intent, never authentication secrets. */
 export interface ViewConfig {
+  /** False while a reused supervisor predates the live plugin event relay. */
+  pluginUpdates?: boolean;
   recovery?: { url: string; token: string };
   cwd: string;
   language: string;

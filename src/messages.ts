@@ -187,3 +187,5 @@ export function tabLabel(title: string): string {
   }
   return `${label.trimEnd()}…`;
 }
+/** Reserved bridge stream for official plugin graph and rebuild notifications. */
+export const PLUGIN_EVENTS = 'vscode.pluginEvents';

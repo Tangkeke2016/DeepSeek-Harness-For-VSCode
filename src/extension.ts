@@ -634,6 +634,7 @@ class Application implements vscode.Disposable {
       const response = await transport.request('/');
       if (!response.ok) throw new Error(`Official Web bootstrap HTTP ${response.status}`);
 
+      let pluginUpdates = true;
       let recovery: { url: string; token: string } | undefined;
       if (!this.attachedUrl) {
         const channel = await this.nativeChannel(cwd);
@@ -643,6 +644,7 @@ class Application implements vscode.Disposable {
           const endpoint = new URL(forwarded.toString());
           endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:';
           recovery = { url: endpoint.href, token };
+          pluginUpdates = (await probe(channel.target))?.pluginUpdates === 1;
         }
       }
       view.detached = Boolean(recovery);
@@ -653,7 +655,7 @@ class Application implements vscode.Disposable {
         bridgeUri: uri(join(this.context.extensionPath, 'dist/bridge.js')),
         adapterUri: uri(join(this.context.extensionPath, 'dist/adapter.js')),
         styleUri: uri(join(this.context.extensionPath, 'webview/style.css')), cspSource: webview.cspSource,
-      }, { recovery, cwd, mode: view.mode, language: vscode.env.language, fresh: view.fresh, editorTab: view.editorTab,
+      }, { recovery, pluginUpdates, cwd, mode: view.mode, language: vscode.env.language, fresh: view.fresh, editorTab: view.editorTab,
         sessionTitle: view.fresh ? undefined : view.title,
         queueRevealDelayMs: vscode.workspace.getConfiguration('deepseekHarness').get('queueRevealDelayMilliseconds', 250),
         sessionId: view.editorTab ? view.sessionId : this.context.workspaceState.get<string>(`v2.session:${cwd}`), nonce: epoch, maxTransferBytes: maxBytes, requestTimeoutMs: timeout });

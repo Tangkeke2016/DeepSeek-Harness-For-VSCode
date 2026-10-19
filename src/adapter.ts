@@ -10,6 +10,7 @@ import { dismissModelMenuOnSelection } from './model-menu.ts';
 import { deleteSession, type DeletableSession } from './delete-session.ts';
 import { routeFiles, type ResourceNavigation } from './file-navigation.ts';
 import { routeChanges } from './change-navigation.ts';
+import { applyPluginUpdate, watchPluginUpdates, type PluginEntries } from './plugin-updates.ts';
 
 interface Observable<T> { getSnapshot(): T; subscribe(listener: () => void): () => void }
 interface Summary { id: string; cwd?: string; updatedAt: number; displayTitle: string; blank: boolean; running: boolean; retainedBy?: Record<string, number> }
@@ -17,6 +18,7 @@ interface SessionState { phase: string; current?: string; ids: string[]; byId: R
 interface Workspace { workspaceId: string; path: string; sessionIds: string[] }
 interface WorkspaceState { phase: string; items: Workspace[]; archivedSessionIds: string[] }
 interface Context {
+  modules: { entries: PluginEntries };
   sidebarRight: ResourceNavigation;
   connection: { reconnect(): void };
   effect(start: () => (() => void), label?: string): void;
@@ -29,7 +31,7 @@ interface Context {
 }
 interface Globals {
   __VSCODE_DSH_CONFIG__: ViewConfig;
-  __VSCODE_DSH__: { post(value: unknown): void; contexts(): readonly EditorContext[]; submitted(contexts: readonly EditorContext[]): void; handle?(value: { kind: string; context?: EditorContext | null; automatic?: boolean }): void };
+  __VSCODE_DSH__: { post(value: unknown): void; pluginEvents(signal: AbortSignal): AsyncIterable<unknown>; contexts(): readonly EditorContext[]; submitted(contexts: readonly EditorContext[]): void; handle?(value: { kind: string; context?: EditorContext | null; automatic?: boolean }): void };
   __DSH_BOOT__: { entries: { id: string; [key: string]: unknown }[]; batches: { entries: string[]; [key: string]: unknown }[] };
   __ModuleLoader__: { load(entry: { id: string; factory: (require: (name: string) => unknown) => unknown }): void };
 }
@@ -48,20 +50,26 @@ const SETTINGS_TICK_MS = 100;
 /** Launcher clicks one settings page spends before it stops asking. */
 const SETTINGS_REQUESTS = 20;
 
-// VSIX clients reload with the view; the development-only EventSource belongs to the browser server.
+// The VS Code subscription owns reconnection and preserves its local entry during graph changes.
 const hmr = '@deepseek-ai/dsh-client-hmr';
 global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.id !== hmr);
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.6', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.6', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.7', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.7', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };
   const primitives = require('@deepseek-ai/dsh-client-ui-primitives') as Record<string, unknown>;
-  return { inject: ['connection', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme', 'sidebarRight'], apply(ctx: Context): void {
+  return { inject: ['modules', 'connection', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme', 'sidebarRight'], apply(ctx: Context): void {
+    const entry = global.__DSH_BOOT__.entries.find(row => row.id === id)!;
+    const batch = global.__DSH_BOOT__.batches.find(row => row.entries.includes(id))!;
+    if (config.pluginUpdates === false) console.warn('Plugin live updates require restarting the workspace backend after upgrading the extension.');
+    else ctx.effect(() => watchPluginUpdates(signal => bridge.pluginEvents(signal),
+      frame => applyPluginUpdate(frame, ctx.modules.entries, entry, batch),
+      error => console.error('Plugin live update failed', error)), 'vscode: plugin updates');
     ctx.effect(() => {
       const stopFileNavigation = routeFiles(ctx.sidebarRight,
         sessionId => ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd,

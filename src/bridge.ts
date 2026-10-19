@@ -1,7 +1,7 @@
 /** Browser side of the Webview carrier; official client plugins retain their own protocol and recovery logic. */
 import { pluginPath } from './plugin-path.ts';
 import { PageCarrier } from './page-carrier.ts';
-import { contextText, type EditorContext } from './messages.ts';
+import { contextText, PLUGIN_EVENTS, type EditorContext } from './messages.ts';
 import type { ViewConfig } from './html.ts';
 import { bridgePluginResources } from './plugin-resources.ts';
 import { followEditorTheme } from './theme.ts';
@@ -25,6 +25,7 @@ interface BrowserGlobals {
   __VSCODE_DSH_API__?: VsCodeApi;
   __VSCODE_DSH__: {
     post(value: unknown): void;
+    pluginEvents: (signal: AbortSignal) => AsyncIterable<unknown>;
     contexts: () => readonly EditorContext[];
     submitted: (contexts: readonly EditorContext[]) => void;
     handle?: (value: Packet) => void;
@@ -61,7 +62,8 @@ const timeoutMs = global.__VSCODE_DSH_CONFIG__.requestTimeoutMs ?? 60000;
 const fault = (error: string): void => api.postMessage({ kind: 'client-failure', error });
 
 // The adapter plugin installs the real context and packet handlers once it applies.
-global.__VSCODE_DSH__ = { post: value => api.postMessage(value as Record<string, unknown>), contexts: () => [], submitted: () => {} };
+global.__VSCODE_DSH__ = { post: value => api.postMessage(value as Record<string, unknown>),
+  pluginEvents: signal => openStream(PLUGIN_EVENTS, { args: {} }, signal), contexts: () => [], submitted: () => {} };
 
 /** @param bytes - Binary payload. @returns Base64 text safe for postMessage. */
 function encode(bytes: Uint8Array): string {
