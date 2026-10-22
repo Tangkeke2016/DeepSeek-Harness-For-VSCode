@@ -655,7 +655,7 @@ class Application implements vscode.Disposable {
         bridgeUri: uri(join(this.context.extensionPath, 'dist/bridge.js')),
         adapterUri: uri(join(this.context.extensionPath, 'dist/adapter.js')),
         styleUri: uri(join(this.context.extensionPath, 'webview/style.css')), cspSource: webview.cspSource,
-      }, { recovery, pluginUpdates, cwd, mode: view.mode, language: vscode.env.language, fresh: view.fresh, editorTab: view.editorTab,
+      }, { recovery, pluginUpdates, accountOrigin: (await vscode.env.asExternalUri(vscode.Uri.parse(new URL(url).origin))).toString().replace(/\/$/, ''), cwd, mode: view.mode, language: vscode.env.language, fresh: view.fresh, editorTab: view.editorTab,
         sessionTitle: view.fresh ? undefined : view.title,
         queueRevealDelayMs: vscode.workspace.getConfiguration('deepseekHarness').get('queueRevealDelayMilliseconds', 250),
         sessionId: view.editorTab ? view.sessionId : this.context.workspaceState.get<string>(`v2.session:${cwd}`), nonce: epoch, maxTransferBytes: maxBytes, requestTimeoutMs: timeout });

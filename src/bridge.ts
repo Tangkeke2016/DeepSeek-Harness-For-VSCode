@@ -127,6 +127,11 @@ async function bridgedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
 
   const request = new Request(input instanceof Request ? input : url, init);
   let bytes = new Uint8Array(await request.arrayBuffer());
+  if (url.pathname === '/api/account/startSignIn' && config.accountOrigin) {
+    const envelope = JSON.parse(new TextDecoder().decode(bytes)) as { payload: { args: { callbackOrigin: string; loginSource: string } } };
+    envelope.payload.args.callbackOrigin = config.accountOrigin;
+    bytes = new TextEncoder().encode(JSON.stringify(envelope));
+  }
 
   // Opening the settings document is a host action, not a backend request.
   if (url.pathname === '/api/settings/openSettingsDocument' && request.method === 'POST') {
@@ -154,7 +159,13 @@ async function bridgedFetch(input: RequestInfo | URL, init?: RequestInit): Promi
   // A prompt the backend accepted retires the chips it carried.
   if (url.pathname === '/api/session/prompt' && response.ok) {
     const envelope = await response.clone().json() as { result?: { ok?: boolean } };
-    if (envelope.result?.ok) submitted(contexts);
+    if (envelope.result?.ok) {
+      submitted(contexts);
+      const sent = JSON.parse(new TextDecoder().decode(bytes)) as { payload: { args: { sessionId?: string; request: { sessionId?: string; content: { type: string; text?: string }[] } } } };
+      const content = sent.payload.args.request.content.filter(item => item.type === 'text' && item.text && !item.text.startsWith('<dsh-vscode-context'));
+      const sessionId = sent.payload.args.request.sessionId ?? sent.payload.args.sessionId;
+      if (sessionId && content.length) sessionStorage.setItem(`dsh-input:${config.cwd}:${sessionId}`, content.map(item => item.text).join('\n'));
+    }
   }
   return response;
 }
@@ -292,3 +303,14 @@ document.addEventListener('click', event => {
 }, true);
 
 api.postMessage({ kind: 'bridge-ready' });
+
+// The official login controller preopens a blank tab, then navigates it to authorization.
+Object.defineProperty(window, 'open', { configurable: true, value: (url?: string | URL) => {
+  let closed = false;
+  const navigate = (target: string | URL): void => {
+    const destination = new URL(String(target), location.href);
+    if (['https:', 'http:'].includes(destination.protocol)) api.postMessage({ kind: 'external', url: destination.href });
+  };
+  if (url && String(url) !== 'about:blank') navigate(url);
+  return { get closed() { return closed; }, opener: null, close() { closed = true; }, location: { replace: navigate } };
+} });

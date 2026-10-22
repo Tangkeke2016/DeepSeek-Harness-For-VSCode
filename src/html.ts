@@ -1,5 +1,6 @@
 /** Adapts the official, authenticated Web bootstrap to local Webview resources. */
 import { pluginPath } from './plugin-path.ts';
+import { copy } from './locale.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
@@ -32,6 +33,8 @@ export interface WebAssets {
 
 /** One view's workspace and launch intent, never authentication secrets. */
 export interface ViewConfig {
+  /** Loopback origin forwarded to the user's browser for official account callbacks. */
+  accountOrigin?: string;
   /** False while a reused supervisor predates the live plugin event relay. */
   pluginUpdates?: boolean;
   recovery?: { url: string; token: string };
@@ -186,6 +189,11 @@ export async function webviewHtml(source: string, assets: WebAssets, config: Vie
   await visit(document);
 
   if (!head || !body || !source.includes('__DSH_BOOT__')) throw new Error('Backend does not provide the official Web bootstrap');
+
+  body.attrs = body.attrs.filter(attr => attr.name !== 'data-dsh-vscode');
+  body.attrs.push({ name: 'data-dsh-vscode', value: config.mode });
+  const loading = parseFragment(`<div id="vscode-initial-loading"><div class="vscode-settings-boot"><div class="vscode-settings-wordmark">HARNESS</div><div class="vscode-settings-spinner" aria-hidden="true"></div><p role="status">${copy(config.language).loadingPlugins}</p></div></div>`);
+  body.childNodes.unshift(...loading.childNodes);
 
   // The configuration is embedded, so `<` is escaped to keep it out of the markup.
   const configJson = JSON.stringify(config).replaceAll('<', '\\u003c');

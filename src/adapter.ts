@@ -1,3 +1,4 @@
+import { lastUserInput } from './input-recall.ts';
 /** Cordis client extension for the official Web UI, registered before its module entry runs. */
 import type { ViewConfig } from './html.ts';
 import type { EditorContext } from './messages.ts';
@@ -18,13 +19,14 @@ interface SessionState { phase: string; current?: string; ids: string[]; byId: R
 interface Workspace { workspaceId: string; path: string; sessionIds: string[] }
 interface WorkspaceState { phase: string; items: Workspace[]; archivedSessionIds: string[] }
 interface Context {
+  conversation: { input: { for(scope: object): { state: Observable<{ draft: string }>; setDraft(text: string): void; focus(): void } } };
   modules: { entries: PluginEntries };
   sidebarRight: ResourceNavigation;
   connection: { reconnect(): void };
   effect(start: () => (() => void), label?: string): void;
   theme: { getTheme(): { preference: string } };
   on(event: 'theme/change', listener: (snapshot: { preference: string }) => void): () => void;
-  sessions: { list: Observable<SessionState>; create(input: { workspaceId: string }): Promise<string>; binding(id: string): { session: DeletableSession } | undefined };
+  sessions: { list: Observable<SessionState>; create(input: { workspaceId: string }): Promise<string>; binding(id: string): { ctx: object; session: DeletableSession & { eventSource?: Observable<{ entries: readonly unknown[] }> } } | undefined };
   workspaces: { list: Observable<WorkspaceState>; create(input: { path: string }): Promise<Workspace> };
   uiWorkspace: { openSession(id: string): void; openWorkspace(id: string): Promise<void>; startSession(id: string): void; archiveSession(id: string, options?: { stopActivity: boolean }): Promise<void> };
   locale: Observable<{ active: string }>;
@@ -32,7 +34,7 @@ interface Context {
 interface Globals {
   __VSCODE_DSH_CONFIG__: ViewConfig;
   __VSCODE_DSH__: { post(value: unknown): void; pluginEvents(signal: AbortSignal): AsyncIterable<unknown>; contexts(): readonly EditorContext[]; submitted(contexts: readonly EditorContext[]): void; handle?(value: { kind: string; context?: EditorContext | null; automatic?: boolean }): void };
-  __DSH_BOOT__: { entries: { id: string; [key: string]: unknown }[]; batches: { entries: string[]; [key: string]: unknown }[] };
+  __DSH_BOOT__: { release?: { version: string }; entries: { id: string; [key: string]: unknown }[]; batches: { entries: string[]; [key: string]: unknown }[] };
   __ModuleLoader__: { load(entry: { id: string; factory: (require: (name: string) => unknown) => unknown }): void };
 }
 
@@ -56,14 +58,14 @@ global.__DSH_BOOT__.entries = global.__DSH_BOOT__.entries.filter(entry => entry.
 global.__DSH_BOOT__.batches = global.__DSH_BOOT__.batches.map(batch => ({ ...batch, entries: batch.entries.filter(entry => entry !== hmr) })).filter(batch => batch.entries.length);
 
 // Register this plugin ahead of the official entries, so the header exists first.
-global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.7', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
-global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.7', entries: [id] });
+global.__DSH_BOOT__.entries.push({ id, url: '/vscode/client.js', rev: '0.2.8', inject: [], external: ['react', 'react-dom/client', '@deepseek-ai/dsh-client-ui-primitives'] });
+global.__DSH_BOOT__.batches.push({ phase: 'application', url: '/vscode/client.js', rev: '0.2.8', entries: [id] });
 
 global.__ModuleLoader__.load({ id, factory: require => {
   const react = require('react') as { createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]): unknown };
   const dom = require('react-dom/client') as { createRoot(element: Element): { render(node: unknown): void; unmount(): void } };
   const primitives = require('@deepseek-ai/dsh-client-ui-primitives') as Record<string, unknown>;
-  return { inject: ['modules', 'connection', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme', 'sidebarRight'], apply(ctx: Context): void {
+  return { inject: ['conversation', 'modules', 'connection', 'sessions', 'workspaces', 'uiWorkspace', 'locale', 'theme', 'sidebarRight'], apply(ctx: Context): void {
     const entry = global.__DSH_BOOT__.entries.find(row => row.id === id)!;
     const batch = global.__DSH_BOOT__.batches.find(row => row.entries.includes(id))!;
     if (config.pluginUpdates === false) console.warn('Plugin live updates require restarting the workspace backend after upgrading the extension.');
@@ -354,23 +356,45 @@ global.__ModuleLoader__.load({ id, factory: require => {
        * showed a surface (that trigger is known to work) and throttled before
        * the first one (the client may still be booting).
        */
-      const settingsLoading = document.createElement('div');
+      const settingsLoading = document.getElementById('vscode-initial-loading')!;
       const versions = document.createElement('footer');
       versions.id = 'vscode-backend-versions';
-      let detectedVersion: string | undefined;
-      settingsLoading.id = 'vscode-settings-loading';
-      const settingsMessage = document.createElement('p');
-      settingsMessage.textContent = text.loading;
-      settingsMessage.setAttribute('role', 'status');
+      const versionLabel = document.createElement('span');
+      const login = document.createElement('button');
+      login.id = 'vscode-account-login';
+      login.type = 'button';
+      let pendingLogin = false;
+      let accountAction = text.login;
+      login.onclick = () => {
+        pendingLogin = true;
+        accountAction = login.textContent ?? text.login;
+        document.querySelector<HTMLButtonElement>('[data-slot="sidebar.settings"] button[aria-haspopup="menu"]')?.click();
+      };
+      versions.append(versionLabel, login);
+      let detectedVersion: string | undefined = global.__DSH_BOOT__.release?.version;
       const settingsRetry = document.createElement('button');
       settingsRetry.textContent = text.retry;
       settingsRetry.hidden = true;
       settingsRetry.onclick = () => { settingsRequests = 0; settingsRequestedAt = 0; requestSettings(); };
-      settingsLoading.append(settingsMessage, settingsRetry);
-      if (config.mode === 'settings') document.body.append(settingsLoading);
+      if (config.mode === 'settings') {
+        settingsLoading.id = 'vscode-settings-loading';
+        settingsLoading.firstElementChild!.append(settingsRetry);
+      }
+      let candidateDialog: Element | null = null;
+      let candidateSince = 0;
+      let missingSince = 0;
       const requestSettings = (): void => {
         const settingsItem = [...document.querySelectorAll<HTMLButtonElement>('button[role="menuitem"][aria-keyshortcuts]')]
           .find(button => button.textContent?.trim().startsWith(text.settings));
+        if (pendingLogin) {
+          const item = [...document.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')]
+            .find(button => button.textContent?.trim() === accountAction);
+          if (item) { pendingLogin = false; item.click(); }
+        }
+        const signedIn = document.querySelector('[data-slot="sidebar.settings"] [data-signed-out="false"]') !== null;
+        login.hidden = document.querySelector('[data-slot="sidebar.settings"] button[aria-haspopup="menu"]') === null;
+        const accountLabel = signedIn ? text.signedIn : text.login;
+        if (login.textContent !== accountLabel) login.textContent = accountLabel;
         // The account menu can own the visible launcher, so prefer the seat
         // whose button announces a dialog.
         const trigger = document.querySelector<HTMLButtonElement>('[data-slot="sidebar.settings"] button[aria-haspopup="dialog"]')
@@ -381,6 +405,11 @@ global.__ModuleLoader__.load({ id, factory: require => {
         // open the panel, so that step's own dialog is the surface to show.
         const panel = document.querySelector('[data-slot="sidebar.settings"] [role="dialog"], [data-shortcut-modal="settings"][role="dialog"]');
         if (panel) {
+          for (const node of panel.querySelectorAll<HTMLElement>('nav button, [class*="_name"], [class*="_accountInfo"], [class*="_options"] [class*="_title"], [class*="_options"] [class*="_rowName"], [data-slot="settings.general.item"] button')) {
+            const label = node.textContent?.trim();
+            if (label && node.title !== label) node.title = label;
+            if (label && node.matches('nav button') && node.getAttribute('aria-label') !== label) node.setAttribute('aria-label', label);
+          }
           // Newer clients expose the connected build in General Settings; older clients use the sidebar badge.
           for (const row of panel.querySelectorAll('[data-slot="settings.general.item"] div')) {
             if (row.children.length !== 0) continue;
@@ -394,7 +423,7 @@ global.__ModuleLoader__.load({ id, factory: require => {
             ?? document.querySelector('[class*="_buildVersion"]')?.textContent?.trim()
             ?? text.unknownVersion;
           const caption = `${text.maxBackendVersion}: ${MAX_SUPPORTED_BACKEND_VERSION}\n${text.currentBackendVersion}: ${current}`;
-          if (versions.textContent !== caption) versions.textContent = caption;
+          if (versionLabel.textContent !== caption) versionLabel.textContent = caption;
           if (versions.parentElement !== panel) panel.append(versions);
           const padding = `${Math.ceil(versions.getBoundingClientRect().height)}px`;
           if (panel instanceof HTMLElement && panel.style.paddingBottom !== padding) panel.style.paddingBottom = padding;
@@ -403,13 +432,19 @@ global.__ModuleLoader__.load({ id, factory: require => {
         const dialog = panel ?? (blocked ? document.querySelector('body > [role="presentation"] > [role="dialog"][aria-modal="true"]') : null);
         const now = Date.now();
         const wait = settingsSeen ? SETTINGS_REOPEN_MS : SETTINGS_LAUNCH_MS;
-        if (!dialog && (settingsItem || trigger) && (settingsItem || trigger?.getAttribute('aria-expanded') !== 'true')
+        if (!pendingLogin && !dialog && (settingsItem || trigger) && (settingsItem || trigger?.getAttribute('aria-expanded') !== 'true')
           && now - settingsRequestedAt >= wait && settingsRequests < SETTINGS_REQUESTS) {
           settingsRequests += 1; settingsRequestedAt = now; (settingsItem ?? trigger)?.click();
         }
-        if (dialog) { dialog.setAttribute('data-vscode-settings', ''); if (!settingsSeen) bridge.post({ kind: 'client-ready' }); settingsSeen = true; settingsRequests = 0; }
+        if (dialog !== candidateDialog) { candidateDialog = dialog; candidateSince = now; }
+        // Initial mounting can be followed by onboarding-driven replacement.
+        // Keep the loading surface until the first panel has settled.
+        const settled = dialog !== null && (settingsSeen || blocked || now - candidateSince >= 300);
+        if (settled) { dialog.setAttribute('data-vscode-settings', ''); if (!settingsSeen) bridge.post({ kind: 'client-ready' }); settingsSeen = true; settingsRequests = 0; }
         // The dedicated settings tab stays a settings surface until its native tab is closed.
-        settingsLoading.hidden = dialog !== null;
+        if (dialog) missingSince = 0;
+        else if (!missingSince) missingSince = now;
+        settingsLoading.hidden = settled || (settingsSeen && now - missingSince < 300);
         settingsRetry.hidden = settingsRequests < SETTINGS_REQUESTS;
 
         // VS Code owns the editor's key bindings, so the official shortcuts
@@ -462,6 +497,22 @@ global.__ModuleLoader__.load({ id, factory: require => {
 
         if (config.mode === 'settings') requestSettings();
       };
+      const recall = (event: KeyboardEvent): void => {
+        if (event.key !== 'ArrowUp' || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if (!(event.target instanceof Element) || !event.target.closest('[data-composer-card] [contenteditable="true"]')) return;
+        if ([...document.querySelectorAll('[role="menu"], [role="listbox"]')].some(node => node.getClientRects().length > 0 && getComputedStyle(node).visibility === 'visible')) return;
+        const sessionId = document.querySelector<HTMLElement>('[data-conversation-session]')?.dataset.conversationSession ?? ctx.sessions.list.getSnapshot().current;
+        const binding = sessionId && ctx.sessions.binding(sessionId);
+        if (!sessionId || !binding) return;
+        const input = ctx.conversation.input.for(binding.ctx);
+        if (input.state.getSnapshot().draft !== '') return;
+        const previous = sessionStorage.getItem(`dsh-input:${config.cwd}:${sessionId}`)
+          || lastUserInput(binding.session.eventSource?.getSnapshot().entries ?? []);
+        if (!previous) return;
+        event.preventDefault(); event.stopImmediatePropagation();
+        input.setDraft(previous); input.focus();
+      };
+      window.addEventListener('keydown', recall, true);
       const stopModelMenu = dismissModelMenuOnSelection();
       const observer = new MutationObserver(adapt); observer.observe(document.body, { childList: true, characterData: true, subtree: true });
       const settingsClock = config.mode === 'settings' ? setInterval(requestSettings, SETTINGS_TICK_MS) : undefined;
@@ -489,8 +540,11 @@ global.__ModuleLoader__.load({ id, factory: require => {
         stopFileNavigation();
         clearInterval(clock);
         clearInterval(settingsClock);
-        settingsLoading.remove();
+        settingsRetry.remove();
+        settingsLoading.id = 'vscode-initial-loading';
+        settingsLoading.hidden = false;
         versions.remove();
+        window.removeEventListener('keydown', recall, true);
         stopModelMenu();
         stopQueueDisplay();
         stopScrollbars();

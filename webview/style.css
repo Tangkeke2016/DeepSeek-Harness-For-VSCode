@@ -56,14 +56,25 @@ body[data-dsh-vscode] [data-composer-card]:has(#vscode-contexts:not(:empty)) { p
 body[data-dsh-vscode] [data-composer-card] > [class$='_row'] { flex-wrap: nowrap; }
 body[data-dsh-vscode] [data-composer-card] > [class$='_row'] > [class$='_trailing'] { flex: 0 1 auto; }
 #vscode-contexts:empty { display: none; }
-.vscode-context { display: flex; align-items: center; min-width: 0; padding: 5px 8px; border-radius: 6px; font-size: 12px; background: color-mix(in srgb, var(--dsw-specific-input-major, var(--vscode-editor-background, #fff)), #000 9%); color: var(--dsw-alias-label-secondary, var(--vscode-foreground, #555)); }
+.vscode-context { display: flex; align-items: center; min-width: 0; padding: 5px 8px; border-radius: var(--dsw-radius-panel); font-size: 12px; background: color-mix(in srgb, var(--dsw-specific-input-major, var(--vscode-editor-background, #fff)), #000 9%); color: var(--dsw-alias-label-secondary, var(--vscode-foreground, #555)); }
 .vscode-context > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .vscode-context button { opacity: 0.7; border: 0; color: inherit; background: transparent; cursor: pointer; }
 .vscode-context:hover button, .vscode-context:focus-within button { opacity: 1; }
 body[data-dsh-vscode='settings'] #vscode-header { display: none; }
 body[data-dsh-vscode='settings'] #root { visibility: hidden; }
-#vscode-settings-loading { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
+body[data-dsh-vscode='settings'] [data-dsh-boot] { display: none !important; }
+/* The official modal mask uses layer 1000; it must not dim the loading surface. */
+#vscode-settings-loading, #vscode-initial-loading { position: fixed; inset: 0; z-index: 1001; display: grid; place-content: center; text-align: center; background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); }
+body[data-vscode-ready='true'] #vscode-initial-loading { display: none; }
 #vscode-settings-loading[hidden] { display: none; }
+/* Match the official boot card while keeping VS Code theme colors through handoff. */
+.vscode-settings-boot { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.vscode-settings-wordmark { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: .08em; }
+.vscode-settings-boot p { margin: 0; font-size: 12px; line-height: 18px; color: var(--vscode-descriptionForeground, var(--vscode-editor-foreground)); }
+.vscode-settings-spinner { position: relative; box-sizing: content-box; width: 20px; height: 20px; border: 2px solid color-mix(in srgb, var(--vscode-editor-foreground), transparent 88%); border-radius: 50%; animation: vscode-settings-spin .8s linear infinite; }
+.vscode-settings-spinner::after { content: ''; position: absolute; inset: -2px; border-radius: inherit; background: conic-gradient(var(--vscode-editor-foreground) 72deg, transparent 0); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0); }
+@keyframes vscode-settings-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .vscode-settings-spinner { animation: none; } }
 body[data-dsh-vscode='settings'] [data-vscode-settings] { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: 0; visibility: visible; background: var(--dsw-alias-bg-base, var(--vscode-editor-background)); }
 body[data-dsh-vscode='settings'] [data-vscode-settings] * { visibility: visible; }
 body[data-dsh-vscode='settings'] [data-vscode-settings] { box-sizing: border-box; }
@@ -145,3 +156,58 @@ body[data-dsh-vscode] [data-conversation-scroll]::-webkit-scrollbar-thumb:active
   font: 12px/1.5 var(--vscode-font-family);
   pointer-events: none;
 }
+
+body[data-dsh-vscode='settings'] [role='menu']:has(button[aria-keyshortcuts]),
+body[data-dsh-vscode='settings'] [role='menu']:has(button[aria-keyshortcuts]) + [data-menu-backing] { visibility: hidden !important; }
+#vscode-backend-versions { display: flex; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; }
+#vscode-account-login { flex: none; color: var(--dsw-alias-label-primary); background: transparent; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm); height: 28px; padding: 0 10px; font: inherit; font-size: 12px; line-height: 18px; cursor: pointer; }
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings']:not([data-vscode-settings]) { visibility: hidden; }
+#vscode-account-login:hover { background: var(--dsw-alias-interactive-bg-hover); }
+
+/* Account cards respond to their available content width, independently of the navigation rail. */
+body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) { container-type: inline-size; min-width: 0; }
+body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) [class*='_identity'] { max-width: 100%; }
+body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) :is([class*='_card'], [class*='_balanceCard'], [class*='_row'], [class*='_bonusValue']) { min-width: 0; box-sizing: border-box; }
+body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) :is([class*='_status'], [class*='_amount'], [class*='_unavailable'], [class*='_unavailableLink']) { overflow-wrap: anywhere; min-width: 0; }
+@container (max-width: 300px) {
+  body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) [class*='_card'] { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+@container (max-width: 220px) {
+  body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) [class*='_row'] { flex-direction: column; align-items: flex-start; gap: 8px; }
+  body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) :is([class*='_links'], [class*='_amount'], [class*='_bonusValue']) { justify-content: flex-start; max-width: 100%; }
+}
+@container (max-width: 140px) {
+  body[data-dsh-vscode='settings'] section:has([class*='_balanceCard']) [class*='_avatar'] { display: none; }
+}
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] nav :is(button, [class*='_navLabel']) { min-width: 0; }
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] nav [class*='_navLabel'] { flex: 1; }
+@media (max-width: 600px) {
+  body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] > nav { width: 140px; }
+}
+@media (max-width: 420px) {
+  body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] > nav { width: 96px; padding-inline: 6px; }
+  body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] nav button { padding-inline: 8px; gap: 4px; }
+  body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] nav [class*='_navTitle'] { padding-inline: 2px; }
+  body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] [class*='_options'] { padding-inline: 12px; }
+  #vscode-backend-versions { flex-wrap: wrap; }
+}
+@media (max-width: 320px) {
+  body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] > nav { width: 80px; }
+}
+
+/* Bound settings controls to the content column; descriptions keep wrapping. */
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] [class*='_options'] { container-type: inline-size; }
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] [class*='_options'] div { max-width: min(100%, 100cqi); box-sizing: border-box; }
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] [class*='_options'] :is(button, select, input, textarea) { min-width: 0; max-width: min(100%, 100cqi); box-sizing: border-box; }
+/* Shared single-line text policy for navigation, field labels and control values. */
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] :is([class*='_navLabel'], [class*='_navTitle'], [class*='_title'], [class*='_rowName'], [class*='_label'], [class*='_name'], [class*='_accountInfo'], button > span, button[aria-haspopup], select, [data-slot='settings.general.item'] button, section:has([class*='_balanceCard']) [class*='_row'] > span:first-child) { min-width: 0; max-width: min(100%, 100cqi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Menu triggers contain an unwrapped text node in both supported clients. */
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] button[aria-haspopup='menu'] { position: relative; display: block; padding-right: 36px; }
+body[data-dsh-vscode='settings'] [data-shortcut-modal='settings'] button[aria-haspopup='menu'] > svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); margin: 0; }
+body[data-dsh-vscode='settings'] [data-slot='settings.general.item'] [class*='_rowText'] { padding-right: 8px; }
+body[data-dsh-vscode='settings'] [data-slot='settings.general.item'] [class*='_row']:not([class*='_rowText']) { flex-wrap: wrap; }
+/* Let descriptions consume the remaining line width before controls wrap. */
+body[data-dsh-vscode='settings'] [data-slot='settings.general.item'] [class*='_row']:not([class*='_rowText']) > div:first-child { flex: 1 1 10ch; min-width: 0; overflow-wrap: anywhere; }
+body[data-dsh-vscode='settings'] [data-slot='settings.general.item'] [class*='_themeCube'] { display: block; padding-inline: 12px; }
+body[data-dsh-vscode='settings'] [data-slot='settings.general.item'] [class*='_themeCube'] svg { display: block; margin: 0 auto 4px; }
+body[data-dsh-vscode='settings'] [class*='_section']:has(> [data-slot='settings.general.item']) { container-type: inline-size; }

@@ -1,6 +1,9 @@
 /** Copy owned by the VS Code surface; official client plugins retain their dictionaries. */
 
 const en = {
+  login: 'Sign in',
+  loadingPlugins: 'Loading plugins…',
+  signedIn: 'Sign out',
   diffReview: 'Changes',
   diffFiles: '{count} files changed',
   diffCopyLine: 'Copy this deleted line',
@@ -12,7 +15,7 @@ const en = {
   diffHint: 'View this turn’s changes in VS Code',
   diffFailed: 'Could not open the recorded changes. Reopen the session and try again.',
   diffUnavailable: 'Change excerpts are unavailable: the file is binary, oversized, unchanged, or its comparison timed out.',
-  maxBackendVersion: 'Maximum supported backend version',
+  maxBackendVersion: 'Maximum supported version',
   currentBackendVersion: 'Current backend version',
   unknownVersion: 'Unknown',
   browserOpenFailed: 'The browser could not open this page.',
@@ -54,6 +57,9 @@ const en = {
 };
 
 const zh: typeof en = {
+  login: '登录',
+  loadingPlugins: 'Loading plugins…',
+  signedIn: '退出登录',
   diffReview: '修改',
   diffFiles: '{count} 个文件已更改',
   diffCopyLine: '复制已删除的当前行',
@@ -65,7 +71,7 @@ const zh: typeof en = {
   diffHint: '在 VS Code 中查看本轮修改',
   diffFailed: '无法打开本轮修改，请重新打开会话后重试。',
   diffUnavailable: '无法显示修改片段：文件为二进制、过大、无变化，或差异计算已超时。',
-  maxBackendVersion: '最高支持后台版本',
+  maxBackendVersion: '最高支持版本',
   currentBackendVersion: '当前后台版本',
   unknownVersion: '未知',
   browserOpenFailed: '浏览器无法打开此网页。',

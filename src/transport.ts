@@ -96,6 +96,14 @@ export class Transport {
     if (target.origin !== this.origin || target.username || target.password) throw new Error('Cross-origin backend request refused');
     if (this.closed) throw new Error('Connection closed');
 
+    if (path === '/api/account/startSignIn' && init.body) {
+      const body = typeof init.body === 'string' ? init.body : init.body instanceof Uint8Array ? new TextDecoder().decode(init.body) : undefined;
+      if (!body) throw new Error('Unsupported account request body');
+      const envelope = JSON.parse(body) as { payload: { args: { callbackOrigin: string; loginSource: string } } };
+      if (!/^http:\/\/(localhost|127\.0\.0\.1|\[::1\]):\d+$/.test(envelope.payload.args.callbackOrigin)) envelope.payload.args.callbackOrigin = this.origin;
+      envelope.payload.args.loginSource = 'desktop';
+      init = { ...init, body: JSON.stringify(envelope) };
+    }
     const headers = new Headers(init.headers);
     headers.set('Cookie', this.cookie);
     headers.set('Origin', this.origin);
